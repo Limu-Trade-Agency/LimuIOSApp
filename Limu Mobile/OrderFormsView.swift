@@ -79,7 +79,7 @@ struct OrderFormsView: View {
                             .foregroundStyle(LimuColors.secondary)
                     }
                     Spacer()
-                    BrandCircleSymbol(systemName: "list.clipboard.fill", diameter: 40, symbolSize: 17)
+                    GradientIconTile(systemName: "list.clipboard", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 40, symbolSize: 17)
                 }
                 .padding(.bottom, 12)
 
@@ -122,7 +122,7 @@ struct OrderFormsView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            BrandEmptyStateIcon(systemName: "list.clipboard", symbolSize: 42)
+            GradientIconTile(systemName: "list.clipboard", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 108, symbolSize: 42)
             Text("No order forms here yet")
                 .font(.limu(size: 15, weight: .bold))
                 .foregroundStyle(LimuColors.ink)
@@ -138,7 +138,7 @@ struct OrderFormsView: View {
     }
 
     private func orderFormCard(_ orderForm: OrderForm) -> some View {
-        LimuCard(padding: 16) {
+        AccentCard(accentColor: statusAccentColor(orderForm.status)) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(orderForm.id)
@@ -256,7 +256,12 @@ private struct OrderFormDetailView: View {
                             .foregroundStyle(LimuColors.secondary)
                     }
                     Spacer()
-                    BrandCircleSymbol(systemName: orderForm.canClientReview ? "hand.tap.fill" : "checkmark.seal.fill", diameter: 46, symbolSize: 20)
+                    GradientIconTile(
+                        systemName: orderForm.canClientReview ? "hand.tap.fill" : "checkmark.seal.fill",
+                        colors: orderForm.canClientReview ? [LimuColors.warning, LimuColors.yellow] : [LimuColors.success, Color(hex: "22C55E")],
+                        diameter: 46,
+                        symbolSize: 20
+                    )
                 }
                 if orderForm.canClientReview {
                     Text("Approve or decline each item. When everything looks right, complete the review so the Limu team can move it to supervisor review.")
@@ -314,7 +319,7 @@ private struct OrderFormDetailView: View {
                                 .font(.limu(size: 12, weight: .semibold))
                                 .foregroundStyle(LimuColors.secondary)
                         } else {
-                            BrandEmptyStateIcon(systemName: "shippingbox", symbolSize: 36)
+                            GradientIconTile(systemName: "shippingbox", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 92, symbolSize: 36)
                             Text("No items captured")
                                 .font(.limu(size: 14, weight: .bold))
                                 .foregroundStyle(LimuColors.ink)
@@ -423,7 +428,7 @@ private struct OrderFormDetailView: View {
     }
 
     private func itemCard(_ item: OrderFormItem) -> some View {
-        LimuCard(padding: 14) {
+        AccentCard(accentColor: statusAccentColor(item.status), padding: 14) {
             HStack(alignment: .top, spacing: 12) {
                 Button {
                     if let url = item.photoURLs.first { previewImageURL = url }

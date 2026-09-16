@@ -100,7 +100,7 @@ struct ShipmentsView: View {
 
                     if filtered.isEmpty {
                         VStack(spacing: 10) {
-                            BrandEmptyStateIcon(systemName: "ferry", symbolSize: 40)
+                            GradientIconTile(systemName: "ferry", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 108, symbolSize: 40)
                             Text("No shipments in this group")
                                 .font(.limu(size: 14, weight: .semibold))
                                 .foregroundStyle(LimuColors.muted)
@@ -150,7 +150,7 @@ struct ShipmentsView: View {
     }
 
     private func shipmentCard(_ shipment: Shipment) -> some View {
-        LimuCard(padding: 16) {
+        AccentCard(accentColor: statusAccentColor(shipment.status)) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(shipment.name).font(.limu(size: 14, weight: .bold)).foregroundStyle(LimuColors.ink)
@@ -509,7 +509,7 @@ private struct ShipmentDetailView: View {
                         ProgressView().tint(LimuColors.copper)
                         Text("Loading shipment log…").font(.limu(size: 12, weight: .semibold)).foregroundStyle(LimuColors.secondary)
                     } else {
-                        BrandEmptyStateIcon(systemName: "tray", symbolSize: 30)
+                        GradientIconTile(systemName: "tray", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 76, symbolSize: 30)
                         Text("No updates yet").font(.limu(size: 13, weight: .semibold))
                         Text("Check back once the shipment departs.").font(.limu(size: 12)).foregroundStyle(LimuColors.muted)
                     }

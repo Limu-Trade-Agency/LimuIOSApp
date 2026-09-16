@@ -15,11 +15,12 @@ struct AuthenticationView: View {
     @State private var businessName = ""
     @State private var stayLoggedIn = false
     @State private var isLoading = false
-    @State private var resetSent = false
     @State private var oneTimeToken = ""
     @State private var newPassword = ""
     @State private var confirmNewPassword = ""
-    @State private var resetTokenFromLink = false
+    @State private var resetIdentifier = ""
+    @State private var resetCode = ""
+    @State private var resetResent = false
     @State private var verificationEmail = ""
     @State private var verificationPhone = ""
     @State private var verificationIdentifier = ""
@@ -31,12 +32,10 @@ struct AuthenticationView: View {
 
     private var isWhatsAppChannel: Bool { verificationChannel == "whatsapp" }
 
-    @Binding private var resetLinkToken: String?
     let onLogin: () -> Void
     @EnvironmentObject private var appState: AppState
 
-    init(resetLinkToken: Binding<String?> = .constant(nil), onLogin: @escaping () -> Void) {
-        _resetLinkToken = resetLinkToken
+    init(onLogin: @escaping () -> Void) {
         self.onLogin = onLogin
     }
 
@@ -97,8 +96,6 @@ struct AuthenticationView: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .background(LimuColors.cream.ignoresSafeArea())
-        .onAppear { consumeResetLinkToken(resetLinkToken) }
-        .onChange(of: resetLinkToken) { _, token in consumeResetLinkToken(token) }
     }
 
     private var heroHeader: some View {
@@ -154,8 +151,8 @@ struct AuthenticationView: View {
     private var authHeaderSubtitle: String {
         switch mode {
         case .claim: return "Connect your existing Limu client record"
-        case .reset: return "Your secure reset link is ready"
-        default: return "We'll send a reset link to your email"
+        case .reset: return "Enter the code we emailed you"
+        default: return "We'll send a verification code to your email"
         }
     }
 
@@ -511,37 +508,17 @@ struct AuthenticationView: View {
 
     private var forgotForm: some View {
         VStack(spacing: 16) {
-            if resetSent {
-                VStack(spacing: 8) {
-                    Image(systemName: "envelope.badge.fill")
-                        .font(.limu(size: 30))
-                        .foregroundStyle(LimuColors.success)
-                    Text("Reset link sent!")
-                        .font(.limu(size: 15, weight: .semibold))
-                        .foregroundStyle(LimuColors.success)
-                    Text("Check your inbox, then tap the link to open the change password screen.")
-                        .font(.limu(size: 13))
-                        .foregroundStyle(LimuColors.secondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(3)
-                    Button("Enter token manually") {
-                        resetTokenFromLink = false
+            LimuTextField(label: "Email Address", placeholder: "your@email.com", text: $email, keyboard: .emailAddress)
+            PrimaryButton(title: appState.isBusy ? "Sending…" : "Send Verification Code", loading: appState.isBusy) {
+                Task {
+                    if await appState.requestPasswordReset(identifier: email) {
+                        resetIdentifier = email
+                        resetCode = ""
+                        resetResent = false
+                        newPassword = ""
+                        confirmNewPassword = ""
                         mode = .reset
                     }
-                        .font(.limu(size: 13, weight: .bold))
-                        .foregroundStyle(LimuColors.copper)
-                        .buttonStyle(.plain)
-                        .padding(.top, 8)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(20)
-                .background(LimuColors.successWash)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color(hex: "86EFAC")) }
-            } else {
-                LimuTextField(label: "Email Address", placeholder: "your@email.com", text: $email, keyboard: .emailAddress)
-                PrimaryButton(title: appState.isBusy ? "Sending…" : "Send Reset Link", loading: appState.isBusy) {
-                    Task { resetSent = await appState.requestPasswordReset(identifier: email) }
                 }
             }
         }
@@ -549,29 +526,59 @@ struct AuthenticationView: View {
 
     private var resetForm: some View {
         VStack(spacing: 16) {
-            if resetTokenFromLink {
-                Label("Secure reset link detected", systemImage: "link.circle.fill")
-                    .font(.limu(size: 12, weight: .semibold))
-                    .foregroundStyle(LimuColors.success)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(LimuColors.successWash)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            } else {
-                LimuTextField(label: "Reset Token", placeholder: "Paste the token from your email link", text: $oneTimeToken)
+            Text(resetMessage)
+                .font(.limu(size: 13))
+                .foregroundStyle(LimuColors.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+
+            LimuTextField(label: "6-Digit Verification Code", placeholder: "000000", text: $resetCode, keyboard: .numberPad)
+                .onChange(of: resetCode) { _, value in
+                    let digits = value.filter(\.isNumber)
+                    resetCode = String(digits.prefix(6))
+                }
+
+            VStack(spacing: 8) {
+                Button(appState.isBusy ? "Sending…" : "Resend code") {
+                    Task {
+                        if await appState.requestPasswordReset(identifier: resetIdentifier) {
+                            resetCode = ""
+                            resetResent = true
+                        }
+                    }
+                }
+                .font(.limu(size: 13, weight: .semibold))
+                .foregroundStyle(LimuColors.copper)
+                .buttonStyle(.plain)
+                .disabled(appState.isBusy)
+
+                if resetResent {
+                    Label("A new code has been sent", systemImage: "checkmark.circle.fill")
+                        .font(.limu(size: 11, weight: .medium))
+                        .foregroundStyle(LimuColors.success)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
+            .animation(.easeInOut(duration: 0.2), value: resetResent)
 
             LimuTextField(label: "New Password", placeholder: "Minimum 8 characters", text: $newPassword, secure: true)
             newPasswordRequirements
             LimuTextField(label: "Confirm New Password", placeholder: "Repeat password", text: $confirmNewPassword, secure: true)
-            PrimaryButton(title: appState.isBusy ? "Saving…" : "Change Password", loading: appState.isBusy, disabled: oneTimeToken.isEmpty || !isNewPasswordValid || newPassword != confirmNewPassword) {
+            PrimaryButton(title: appState.isBusy ? "Saving…" : "Change Password", loading: appState.isBusy, disabled: resetCode.count != 6 || !isNewPasswordValid || newPassword != confirmNewPassword) {
                 Task {
-                    if await appState.completePasswordReset(token: oneTimeToken, password: newPassword) {
+                    if await appState.completePasswordReset(identifier: resetIdentifier, code: resetCode, password: newPassword) {
                         returnToSignIn()
                     }
                 }
             }
         }
+    }
+
+    private var resetMessage: String {
+        if resetIdentifier.contains("@") {
+            return "We sent a verification code to\n\(resetIdentifier)"
+        }
+        return "We sent a verification code to the email address on your account."
     }
 
     private var newPasswordRequirements: some View {
@@ -597,26 +604,14 @@ struct AuthenticationView: View {
         .animation(.easeInOut(duration: 0.18), value: isNewPasswordValid)
     }
 
-    private func consumeResetLinkToken(_ token: String?) {
-        let cleaned = token?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !cleaned.isEmpty else { return }
-        oneTimeToken = cleaned
-        resetTokenFromLink = true
-        resetSent = false
-        newPassword = ""
-        confirmNewPassword = ""
-        appState.clearError()
-        mode = .reset
-        resetLinkToken = nil
-    }
-
     private func returnToSignIn() {
         mode = .signIn
-        resetSent = false
-        resetTokenFromLink = false
         oneTimeToken = ""
         newPassword = ""
         confirmNewPassword = ""
+        resetIdentifier = ""
+        resetCode = ""
+        resetResent = false
         password = ""
         appState.clearError()
     }

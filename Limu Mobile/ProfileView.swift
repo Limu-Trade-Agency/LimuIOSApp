@@ -99,7 +99,7 @@ struct ProfileView: View {
                     if let email = appState.profile?.email, !email.isEmpty {
                         Text(email).font(.limu(size: 12)).foregroundStyle(LimuColors.secondary)
                     }
-                    Text("\(appState.profile?.customerCategory ?? "Client") Client")
+                    Text((appState.profile?.customerCategory).map { "\($0) Client" } ?? "Client")
                         .font(.limu(size: 10, weight: .bold)).foregroundStyle(LimuColors.copper)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(LimuColors.copperWash).clipShape(Capsule())

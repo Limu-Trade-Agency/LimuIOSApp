@@ -5,7 +5,6 @@ struct ContentView: View {
     @State private var selectedTab: AppTab
     @State private var showingNotifications: Bool
     @State private var shouldOpenKYC = false
-    @State private var passwordResetToken: String?
 
     init() {
         let args = ProcessInfo.processInfo.arguments
@@ -28,7 +27,7 @@ struct ContentView: View {
             } else if appState.isAuthenticated {
                 mainApp
             } else {
-                AuthenticationView(resetLinkToken: $passwordResetToken) {
+                AuthenticationView {
                     selectedTab = .home
                 }
             }
@@ -39,11 +38,6 @@ struct ContentView: View {
         .tint(LimuColors.copper)
         .preferredColorScheme(.light)
         .task { await appState.bootstrap() }
-        .onOpenURL(perform: handleDeepLink)
-        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
-            guard let url = activity.webpageURL else { return }
-            handleDeepLink(url)
-        }
         .onReceive(NotificationCenter.default.publisher(for: .limuDidRegisterForRemoteNotifications)) { notification in
             guard let token = notification.userInfo?["token"] as? String else { return }
             Task { await appState.savePushToken(token) }
@@ -134,14 +128,6 @@ struct ContentView: View {
         selectedTab = .profile
     }
 
-    private func handleDeepLink(_ url: URL) {
-        guard let token = Self.passwordResetToken(from: url) else { return }
-        showingNotifications = false
-        selectedTab = .home
-        appState.beginPasswordResetFromLink()
-        passwordResetToken = token
-    }
-
     private func handleRemoteNotificationTap(_ notification: Notification) {
         Task { await appState.refreshAfterRemoteNotification() }
         guard appState.isAuthenticated else { return }
@@ -190,27 +176,6 @@ struct ContentView: View {
         }
     }
 
-    private static func passwordResetToken(from url: URL) -> String? {
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
-
-        let queryItems = components.queryItems ?? []
-        let purpose = queryItems.first { $0.name.caseInsensitiveCompare("purpose") == .orderedSame }?.value?.lowercased()
-        guard let token = queryItems.first(where: { $0.name.caseInsensitiveCompare("token") == .orderedSame })?.value?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !token.isEmpty else {
-            return nil
-        }
-
-        let scheme = components.scheme?.lowercased()
-        let host = components.host?.lowercased() ?? ""
-        let path = components.path.lowercased()
-        let isLimuResetLink = scheme == "limu"
-            && (host == "reset-password" || path.contains("reset-password") || purpose == "password_reset")
-        let isUniversalResetLink = ["http", "https"].contains(scheme ?? "")
-            && (path.contains("/reset-password") || path.contains("/mobile/account") || purpose == "password_reset")
-
-        return (isLimuResetLink || isUniversalResetLink) ? token : nil
-    }
 }
 
 private struct KYCRestrictedView: View {

@@ -107,7 +107,7 @@ struct CargoView: View {
                 LazyVStack(spacing: 10) {
                     if filteredCargo.isEmpty {
                         VStack(spacing: 12) {
-                            BrandEmptyStateIcon(systemName: "shippingbox")
+                            GradientIconTile(systemName: "shippingbox", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 108, symbolSize: 40)
                             Text("No cargo matches this filter.")
                                 .font(.limu(size: 14, weight: .semibold))
                                 .foregroundStyle(LimuColors.muted)
@@ -140,7 +140,7 @@ struct CargoView: View {
     }
 
     private func cargoCard(_ cargo: Cargo) -> some View {
-        LimuCard(padding: 16) {
+        AccentCard(accentColor: statusAccentColor(cargo.status)) {
             HStack(alignment: .top, spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(cargo.id).font(.limu(size: 14, weight: .bold)).foregroundStyle(LimuColors.ink)
@@ -377,7 +377,7 @@ private struct CargoDetailView: View {
             }
             ForEach(packages) { package in
                 Button { onPackage(package) } label: {
-                    LimuCard(padding: 14) {
+                    AccentCard(accentColor: LimuColors.success, padding: 14) {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(package.content).font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.ink)

@@ -1441,3 +1441,97 @@ struct SegmentedTabs: View {
         .overlay(alignment: .bottom) { Rectangle().fill(LimuColors.charcoal.opacity(0.1)).frame(height: 1) }
     }
 }
+
+// MARK: - Visual-refresh primitives (Home / Cargo / Shipments / Order Forms / Notifications only —
+// Profile and KYC intentionally keep the plain LimuCard/BrandCircleSymbol look above, so none of
+// the existing components in this file are modified; these are purely additive). Ported from the
+// Android app's design/Components.kt (AccentCard/GradientIconTile/SectionAccentBar/
+// statusAccentColor) — Android picked these up in a design-system pass this file didn't get, so
+// this closes that parity gap rather than introducing a new one. NOT verified by a build in the
+// environment this was ported from (no Xcode/Swift toolchain available) — sanity-check in Xcode
+// before shipping.
+
+/// Same status→color mapping `StatusBadge` uses internally (its third tuple element), exposed as a
+/// free function so cards outside `StatusBadge` can accent themselves by status too.
+func statusAccentColor(_ status: String) -> Color {
+    switch status {
+    case "Active", "In Warehouse", "In Transit", "Upcoming", "Departed", "Draft":
+        return Color(hex: "3B82F6")
+    case "Ready for Collection", "Paid", "Approved", "Completed", "Purchased", "Item Approved":
+        return Color(hex: "22C55E")
+    case "Loading":
+        return Color(hex: "F97316")
+    case "Payment Pending", "Partially Paid", "Pending", "Pending Payment", "Pending Purchase":
+        return Color(hex: "F59E0B")
+    case "Not Paid", "Declined", "Not Started", "Dormant", "Item Declined":
+        return Color(hex: "EF4444")
+    case "Pending Review", "Client Review", "Supervisor Review":
+        return Color(hex: "8B5CF6")
+    default:
+        return LimuColors.muted
+    }
+}
+
+/// A richer alternative to `LimuCard`: same white/rounded body, but with a soft colour-tinted
+/// shadow and a thin gradient accent bar along the top edge. Intended for list/preview cards on
+/// the redesigned screens; `LimuCard` itself is untouched so Profile/KYC keep their current look.
+struct AccentCard<Content: View>: View {
+    let accentColor: Color
+    var padding: CGFloat = 16
+    let content: Content
+
+    init(accentColor: Color, padding: CGFloat = 16, @ViewBuilder content: () -> Content) {
+        self.accentColor = accentColor
+        self.padding = padding
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LinearGradient(colors: [accentColor, accentColor.opacity(0.35)], startPoint: .leading, endPoint: .trailing)
+                .frame(height: 3.5)
+            VStack(alignment: .leading, spacing: 0) {
+                content
+            }
+            .padding(padding)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(LimuColors.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        // Android pairs an 8dp-elevation ambient shadow with a colour-tinted spot shadow; SwiftUI
+        // has no ambient/spot split, so two stacked .shadow modifiers approximate it.
+        .shadow(color: LimuColors.charcoal.opacity(0.07), radius: 8, y: 3)
+        .shadow(color: accentColor.opacity(0.22), radius: 8, y: 3)
+    }
+}
+
+/// A diagonal-gradient rounded icon tile — a more vivid stand-in for `BrandCircleSymbol` on the
+/// redesigned screens (Home metrics, notification categories).
+struct GradientIconTile: View {
+    let systemName: String
+    let colors: [Color]
+    var diameter: CGFloat = 40
+    var symbolSize: CGFloat = 18
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+            Image(systemName: systemName)
+                .font(.system(size: symbolSize, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: diameter, height: diameter)
+        .clipShape(RoundedRectangle(cornerRadius: diameter / 3, style: .continuous))
+    }
+}
+
+/// Small gradient dash used ahead of a section title for a bit of colour on the redesigned screens.
+struct SectionAccentBar: View {
+    var color: Color = LimuColors.copper
+
+    var body: some View {
+        LinearGradient(colors: [color, color.opacity(0.4)], startPoint: .top, endPoint: .bottom)
+            .frame(width: 4, height: 14)
+            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+    }
+}
