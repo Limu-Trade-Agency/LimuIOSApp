@@ -128,11 +128,30 @@ final class AppState: ObservableObject {
         }
     }
 
-    func resendRegistrationVerification(identifier: String) async -> Bool {
+    /// Phone codes (WhatsApp or SMS at the backend's choice) are checked by verify-phone.php and sign the client straight in.
+    func verifyRegistrationPhone(identifier: String, code: String) async -> Bool {
+        await runBusy {
+            let payload: AuthPayloadDTO = try await api.post(
+                "auth/verify-phone.php",
+                body: ["identifier": identifier, "code": code, "deviceId": deviceID],
+                authenticated: false
+            )
+            api.store(payload.session, persist: true)
+            profile = payload.client
+            do { try await refreshAll() }
+            catch { api.clearSession(); throw error }
+            isAuthenticated = true
+            await registerStoredPushTokenIfAvailable()
+            configurePushNotifications()
+        }
+    }
+
+    /// Resends the registration code on a specific channel ("sms" for the phone, or "email").
+    func resendRegistrationVerification(identifier: String, channel: String) async -> Bool {
         await runBusy {
             try await api.send(
                 "auth/resend-verification.php",
-                body: ["identifier": identifier],
+                body: ["identifier": identifier, "channel": channel, "deviceId": deviceID],
                 authenticated: false
             )
         }
@@ -229,10 +248,24 @@ final class AppState: ObservableObject {
         notifications = []
     }
 
+    private func emptyIfKYCRequired<Value>(_ load: () async throws -> [Value]) async throws -> [Value] {
+        do {
+            return try await load()
+        } catch let error as APIError where error.code == "KYC_REQUIRED" {
+            return []
+        }
+    }
+
     func refreshAll() async throws {
         let dashboardDTO: DashboardDTO = try await api.get("dashboard.php")
-        let cargoDTOs: [CargoDTO] = try await api.get("cargo/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
-        let shipmentDTOs: [ShipmentDTO] = try await api.get("shipments/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
+        // Until KYC is complete the backend answers these list endpoints with 403 KYC_REQUIRED;
+        // that means "no data yet", not a failed login, so the dashboards render empty.
+        let cargoDTOs: [CargoDTO] = try await emptyIfKYCRequired {
+            try await api.get("cargo/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
+        }
+        let shipmentDTOs: [ShipmentDTO] = try await emptyIfKYCRequired {
+            try await api.get("shipments/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
+        }
         let orderFormDTOs: [OrderFormDTO]
         do {
             orderFormDTOs = try await api.get("orderforms/index.php", query: [URLQueryItem(name: "perPage", value: "100")])

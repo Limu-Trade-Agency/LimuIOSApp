@@ -25,6 +25,10 @@ struct AuthenticationView: View {
     @State private var verificationCode = ""
     @State private var verificationResent = false
     @State private var verificationEmailSent = true
+    /// Which proof the backend asked for after registration: "sms" (phone code, delivered over WhatsApp or SMS) or "email".
+    @State private var verificationChannel = "email"
+    @State private var verificationIdentifier = ""
+    @State private var verificationPhone = ""
 
     let onLogin: () -> Void
     @EnvironmentObject private var appState: AppState
@@ -165,7 +169,7 @@ struct AuthenticationView: View {
             }
             .buttonStyle(.plain)
             .padding(.bottom, 20)
-            Text("Verify Your Email")
+            Text(verificationChannel == "sms" ? "Verify Your Number" : "Verify Your Email")
                 .font(.limu(size: 22, weight: .bold))
             Text("One quick step to secure your account")
                 .font(.limu(size: 13))
@@ -243,6 +247,9 @@ struct AuthenticationView: View {
                         if await appState.requestAccountClaim(identifier: email) { mode = .claim }
                     } else if appState.lastErrorCode == "EMAIL_VERIFICATION_REQUIRED" {
                         verificationEmail = email
+                        verificationChannel = "email"
+                        verificationIdentifier = email
+                        verificationPhone = ""
                         verificationCode = ""
                         verificationResent = false
                         verificationEmailSent = true
@@ -277,10 +284,14 @@ struct AuthenticationView: View {
             PrimaryButton(title: appState.isBusy ? "Creating Account…" : "Create Account", loading: appState.isBusy, disabled: password != confirmPassword || !isRegistrationPasswordValid || !isRegistrationPhoneValid || location.isEmpty || (clientType == "Business" && businessName.isEmpty)) {
                 Task {
                     if let registration = await appState.register(firstName: firstName, lastName: lastName, email: email, phone: phone, password: password, clientType: clientType, businessName: businessName, location: location) {
+                        let channel = (registration.channel ?? "email").lowercased()
+                        verificationChannel = channel == "sms" ? "sms" : "email"
                         verificationEmail = registration.email
+                        verificationIdentifier = registration.identifier.flatMap { $0.isEmpty ? nil : $0 } ?? email
+                        verificationPhone = (registration.phone ?? "").isEmpty ? phone : (registration.phone ?? phone)
                         verificationCode = ""
                         verificationResent = false
-                        verificationEmailSent = registration.emailSent
+                        verificationEmailSent = verificationChannel == "sms" ? (registration.smsSent ?? true) : registration.emailSent
                         mode = .verifyEmail
                     }
                 }
@@ -319,13 +330,13 @@ struct AuthenticationView: View {
 
     private var verificationForm: some View {
         VStack(spacing: 18) {
-            Image(systemName: "envelope.badge")
+            Image(systemName: verificationChannel == "sms" ? "message.badge" : "envelope.badge")
                 .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(LimuColors.copper)
                 .accessibilityHidden(true)
 
             VStack(spacing: 6) {
-                Text("Check your inbox")
+                Text(verificationChannel == "sms" ? "Check your messages" : "Check your inbox")
                     .font(.limu(size: 18, weight: .bold))
                     .foregroundStyle(LimuColors.ink)
                 Text(verificationMessage)
@@ -336,7 +347,7 @@ struct AuthenticationView: View {
             }
 
             if !verificationEmailSent {
-                Label("We couldn't send the email. Tap Resend code to try again.", systemImage: "exclamationmark.triangle.fill")
+                Label("We couldn't send the code. Tap Resend code to try again.", systemImage: "exclamationmark.triangle.fill")
                     .font(.limu(size: 11, weight: .medium))
                     .foregroundStyle(LimuColors.warning)
                     .padding(10)
@@ -357,12 +368,16 @@ struct AuthenticationView: View {
             }
 
             PrimaryButton(
-                title: appState.isBusy ? "Verifying…" : "Verify Email",
+                title: appState.isBusy ? "Verifying…" : (verificationChannel == "sms" ? "Verify Number" : "Verify Email"),
                 loading: appState.isBusy,
                 disabled: verificationCode.count != 6
             ) {
                 Task {
-                    if await appState.verifyRegistrationEmail(identifier: verificationEmail, code: verificationCode) {
+                    let identifier = verificationIdentifier.isEmpty ? verificationEmail : verificationIdentifier
+                    let verified = verificationChannel == "sms"
+                        ? await appState.verifyRegistrationPhone(identifier: identifier, code: verificationCode)
+                        : await appState.verifyRegistrationEmail(identifier: identifier, code: verificationCode)
+                    if verified {
                         onLogin()
                     }
                 }
@@ -374,7 +389,8 @@ struct AuthenticationView: View {
                     .foregroundStyle(LimuColors.muted)
                 Button(appState.isBusy ? "Sending…" : "Resend code") {
                     Task {
-                        if await appState.resendRegistrationVerification(identifier: verificationEmail) {
+                        let identifier = verificationIdentifier.isEmpty ? verificationEmail : verificationIdentifier
+                        if await appState.resendRegistrationVerification(identifier: identifier, channel: verificationChannel) {
                             verificationCode = ""
                             verificationResent = true
                             verificationEmailSent = true
@@ -385,6 +401,40 @@ struct AuthenticationView: View {
                 .foregroundStyle(LimuColors.copper)
                 .buttonStyle(.plain)
                 .disabled(appState.isBusy)
+
+                if verificationChannel == "sms" {
+                    Button("Use an email code instead") {
+                        Task {
+                            let identifier = verificationIdentifier.isEmpty ? verificationEmail : verificationIdentifier
+                            if await appState.resendRegistrationVerification(identifier: identifier, channel: "email") {
+                                verificationChannel = "email"
+                                verificationCode = ""
+                                verificationResent = false
+                                verificationEmailSent = true
+                            }
+                        }
+                    }
+                    .font(.limu(size: 13, weight: .semibold))
+                    .foregroundStyle(LimuColors.secondary)
+                    .buttonStyle(.plain)
+                    .disabled(appState.isBusy)
+                } else if !verificationPhone.isEmpty {
+                    Button("Send the code to my phone instead") {
+                        Task {
+                            let identifier = verificationIdentifier.isEmpty ? verificationEmail : verificationIdentifier
+                            if await appState.resendRegistrationVerification(identifier: identifier, channel: "sms") {
+                                verificationChannel = "sms"
+                                verificationCode = ""
+                                verificationResent = false
+                                verificationEmailSent = true
+                            }
+                        }
+                    }
+                    .font(.limu(size: 13, weight: .semibold))
+                    .foregroundStyle(LimuColors.secondary)
+                    .buttonStyle(.plain)
+                    .disabled(appState.isBusy)
+                }
 
                 if verificationResent {
                     Label("A new code has been sent", systemImage: "checkmark.circle.fill")
@@ -399,6 +449,10 @@ struct AuthenticationView: View {
     }
 
     private var verificationMessage: String {
+        if verificationChannel == "sms" {
+            let target = verificationPhone.isEmpty ? "the number on your account" : verificationPhone
+            return "We sent a verification code to\n\(target)\nCheck WhatsApp (or your text messages)."
+        }
         if verificationEmail.contains("@") {
             return "We sent a verification code to\n\(verificationEmail)"
         }

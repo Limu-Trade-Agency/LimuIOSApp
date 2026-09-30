@@ -11,6 +11,12 @@ struct RegistrationPayloadDTO: Decodable {
     let emailSent: Bool
     let expiresAt: String
     let testCode: String?
+    /// "sms" (code arrives on the phone, over WhatsApp or SMS) or "email"; absent on older servers.
+    let channel: String?
+    /// The value the client typed that verify/resend calls must use (set when an existing record was linked).
+    let identifier: String?
+    let phone: String?
+    let smsSent: Bool?
 }
 
 struct SessionDTO: Codable {
