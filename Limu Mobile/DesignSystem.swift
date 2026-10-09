@@ -36,7 +36,7 @@ enum LimuColors {
 enum LimuLinks {
     /// Published privacy policy. The same URL is declared in App Store Connect —
     /// keep the two in sync, Apple rejects a listing whose policy link is dead.
-    static let privacyPolicy = URL(string: "https://limu.co.mw/policy")!
+    static let privacyPolicy = URL(string: "https://portal.limu.co.mw/policy")!
 }
 
 extension Font {

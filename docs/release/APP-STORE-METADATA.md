@@ -85,7 +85,7 @@ cargo,shipment,freight,logistics,tracking,consignment,order form,kyc,malawi,impo
 | --- | --- |
 | Support URL (required) | **«TBC»** — needs a live page, e.g. `https://limu.co.mw/support` |
 | Marketing URL (optional) | **«TBC»** — e.g. `https://limu.co.mw` |
-| Privacy Policy URL (required) | `https://limu.co.mw/policy` — confirm it is live and covers the data types in `APP-PRIVACY.md` |
+| Privacy Policy URL (required) | `https://portal.limu.co.mw/policy` — confirm it is live and covers the data types in `APP-PRIVACY.md` |
 
 Apple rejects submissions where the support or privacy URL 404s, redirects to a login wall, or
 points at a placeholder page. Confirm all three load in a private browser window.

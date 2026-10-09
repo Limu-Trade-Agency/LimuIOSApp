@@ -12,6 +12,7 @@ This file tracks what is done, what is blocked, and what has to be decided by so
 | Release notes | **Done** | [`RELEASE-NOTES.md`](../../RELEASE-NOTES.md) |
 | App Store metadata | **Drafted** — copy is final, account-level values still `«TBC»` | [`APP-STORE-METADATA.md`](APP-STORE-METADATA.md) |
 | Privacy information | **Done** — manifest shipped, questionnaire answers written, policy URL wired into the app | [`APP-PRIVACY.md`](APP-PRIVACY.md), `Limu Mobile/PrivacyInfo.xcprivacy` |
+| Privacy policy page | **Drafted** — needs placeholders filled, a legal review, and deploying | `policy/` in the portal repo |
 | App icon | **Done** — light, dark and tinted, generated from the Limu emblem | `scripts/make-app-icon.py`, `AppIcon.appiconset` |
 | Account deletion | **Built both sides** — needs deploying and testing | [`ACCOUNT-DELETION.md`](../../ACCOUNT-DELETION.md) |
 | Screenshots | **Needs a size check** — the supplied set is iOS, but the capture device is unconfirmed | [`SCREENSHOTS.md`](SCREENSHOTS.md) |
@@ -43,10 +44,20 @@ first request after deployment, like every other V4 table. Checklist in
 
 ### 3. Privacy policy page
 
-`https://limu.co.mw/policy` is now declared in the metadata and linked from two places in the app.
-Confirm the page is live, public and reachable without a login, and that it covers the six data
-types in [`APP-PRIVACY.md`](APP-PRIVACY.md) plus the retention carve-out that the deletion flow
-depends on. Management deliverable.
+`https://portal.limu.co.mw/policy` is declared in the metadata and linked from two places in the app. A
+full draft now exists at `policy/index.html` in the portal repository (`gochi20/limu`) —
+self-contained HTML, brand-styled, covering all six data types and the deletion retention carve-out.
+It sits at the repository root, which is the portal's document root, so it serves at `/policy` with
+no rewrite rule and no session.
+
+Three things stand between it and live:
+
+1. **17 placeholders** — company registration details, contact addresses, retention periods, the
+   statutory citation, and the hosting country. Listed in `policy/README.md`.
+2. **A legal review** — particularly sections 5, 8, 10 and 13.
+3. **Deploying it** — publicly reachable at that exact URL, with no login wall. Apple checks.
+
+Management deliverable, but the writing is done.
 
 ### 4. Demo account for App Review
 

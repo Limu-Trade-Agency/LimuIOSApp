@@ -149,8 +149,8 @@ struct AuthenticationView: View {
     private var authHeaderSubtitle: String {
         switch mode {
         case .claim: return "Connect your existing Limu client record"
-        case .reset: return "Enter the code we emailed you"
-        default: return "We'll send a verification code to your email"
+        case .reset: return "Enter the code we sent you"
+        default: return "We'll send a verification code by email and WhatsApp"
         }
     }
 
@@ -572,10 +572,11 @@ struct AuthenticationView: View {
     }
 
     private var resetMessage: String {
+        let sent = "We sent a verification code by email and WhatsApp (or text message)."
         if resetIdentifier.contains("@") {
-            return "We sent a verification code to\n\(resetIdentifier)"
+            return "\(sent)\nCheck \(resetIdentifier) and your phone."
         }
-        return "We sent a verification code to the email address on your account."
+        return "\(sent)\nCheck your email and your phone."
     }
 
     private var newPasswordRequirements: some View {

@@ -74,25 +74,55 @@ declaring no tracking in App Store Connect. These two must never disagree.
 
 ## Privacy policy
 
-**`https://limu.co.mw/policy`**
+**`https://portal.limu.co.mw/policy`**
 
 Declared in App Store Connect, and linked from inside the app in two places — a Privacy Policy row
 in Profile, and a link on the Delete Account screen. The constant lives in `LimuLinks.privacyPolicy`
 (`Limu Mobile/DesignSystem.swift`); change it in one place and both links follow.
 
+**A draft page is written**: `policy/index.html` at the root of the portal repository
+(`gochi20/limu`), self-contained HTML in the Limu palette, with deployment notes and the outstanding
+placeholders alongside it in `policy/README.md`. The portal's document root is the repository root,
+so the file serves at the URL above with no rewrite rule. It still needs 17 placeholders filled, a
+legal review, and deploying.
+
 Before submitting, confirm the page is live, public, and reachable without a login — Apple checks
-it, and a 404 or a redirect to a sign-in wall stops the review. The page has to cover, at minimum:
+it, and a 404 or a redirect to a sign-in wall stops the review. The page covers:
 
 - What is collected — the six data types in the table above.
 - Why — delivering the freight-forwarding service.
-- Who it is shared with — nobody. No third-party processors are integrated.
+- Who it is shared with (see the correction below).
 - How long it is retained, and which records survive account deletion (customs, tax and accounting
   records that Limu Trade is legally required to keep).
 - How a client deletes their account.
 
 That last pair matters more than it looks: the retention carve-out in the policy is what makes the
 in-app deletion flow defensible to a reviewer. If the policy is silent on it, the rejection arrives
-at the privacy step instead of the deletion step.
+at the privacy step instead of the deletion step. Section 9 of the drafted page handles it and
+carries its own anchor — `https://portal.limu.co.mw/policy#delete-your-account` — which is also what Google
+Play wants as a separate data-deletion URL.
+
+### Correction: sharing is not "nobody"
+
+An earlier draft of this document said data is shared with nobody because no third-party processors
+are integrated. That is true of **the app bundle** — there are no third-party SDKs in it, which is
+what the App Store questionnaire asks about — but it is not true of the service behind it, and the
+privacy policy has to describe the service.
+
+The backend does share personal information with:
+
+| Recipient | What, and why |
+| --- | --- |
+| Apple Push Notification service, Google Firebase Cloud Messaging | Device token and notification content, to deliver push |
+| SMS provider (Twilio) | Phone number and message, for verification codes |
+| WhatsApp Business platform (Meta) | Phone number and message, for verification |
+| SMTP email provider | Email address and message content |
+| Hosting provider | All data, as our processor |
+| Customs authorities and freight partners | Consignment and contact details, to clear and move goods |
+
+None of this changes the App Store questionnaire answers — those are about what the app collects and
+whether it tracks, and the answer is still no tracking and no third-party SDKs. It does change the
+privacy policy, which is why section 6 of the drafted page lists all six.
 
 ### Account deletion — App Store Review Guideline 5.1.1(v)
 

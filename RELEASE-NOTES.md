@@ -56,7 +56,7 @@ can be filled if App Store Connect requests it.)
 
 **Profile**
 - View and edit profile details, and change password.
-- Privacy policy link (`https://limu.co.mw/policy`), also linked from the delete-account screen.
+- Privacy policy link (`https://portal.limu.co.mw/policy`), also linked from the delete-account screen.
 
 **Platform**
 - Native SwiftUI throughout, Poppins type, and the Limu palette (charcoal `#161A1C`,

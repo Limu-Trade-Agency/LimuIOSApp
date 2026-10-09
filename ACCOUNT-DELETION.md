@@ -116,7 +116,7 @@ Failure cases the app already renders through `APIError`:
    copy for local testing, and `portal.limu.co.mw` is the live target.
 2. **Test against a database.** Nothing here has been run yet — see the checklist below.
 3. **Update the privacy policy.** Apple does not require that every record be destroyed, only that
-   the **account** is deleted and that the retention is explained. `https://limu.co.mw/policy` has to
+   the **account** is deleted and that the retention is explained. `https://portal.limu.co.mw/policy` has to
    say which records are kept, why, and for how long, or this comes back as a rejection at the
    privacy-policy step instead of the deletion step.
 

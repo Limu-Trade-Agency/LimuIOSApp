@@ -100,9 +100,12 @@ missing from the archive anyway.
 
 ### Privacy policy links
 
-`LimuLinks.privacyPolicy` (`Limu Mobile/DesignSystem.swift`) holds `https://limu.co.mw/policy`, used
+`LimuLinks.privacyPolicy` (`Limu Mobile/DesignSystem.swift`) holds `https://portal.limu.co.mw/policy`, used
 by a Privacy Policy row in Profile and a link on the delete screen. One constant, so the app and the
 App Store listing cannot drift apart.
+
+The page itself is drafted in the portal repository at `policy/index.html`, with deployment notes
+and the outstanding placeholders alongside it in `policy/README.md`. It is not deployed yet.
 
 ### Export compliance
 
@@ -133,7 +136,7 @@ Four blockers, none of which are code. The checklist carries the detail and the 
 | --- | --- | --- |
 | 1 | Apple Developer Program membership and a Mac | Management |
 | 2 | Deploy and test `DELETE profile/delete.php` | Backend |
-| 3 | `https://limu.co.mw/policy` live, and covering deletion retention | Management |
+| 3 | Fill in, legally review and host the drafted privacy policy page | Management |
 | 4 | Demo account for App Review — KYC-complete, with real records | Backend / Ops |
 
 The demo account also unblocks the screenshots, so it is worth doing early even though it looks like
