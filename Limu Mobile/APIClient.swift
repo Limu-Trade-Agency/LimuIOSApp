@@ -29,10 +29,20 @@ struct APIError: LocalizedError {
             return "The email, phone, or password you entered is incorrect. Please try again."
         case "ACCOUNT_TEMPORARILY_LOCKED":
             return "Too many failed sign-in attempts. Please wait a few minutes and try again."
+        case "ACCOUNT_INACTIVE":
+            return "This account is inactive. Contact Limu support for help."
         case "RATE_LIMITED":
             return "Too many attempts. Please wait a few minutes before trying again."
+        case "KYC_REQUIRED":
+            return "Complete your KYC details to unlock cargo, shipments, and order forms."
         case "WHATSAPP_DELIVERY_FAILED":
-            return "The WhatsApp code could not be sent. Try again or use your email instead."
+            return "WhatsApp verification is unavailable. Try again or use your email instead."
+        case "WHATSAPP_NOT_CONFIGURED":
+            return "WhatsApp verification is temporarily unavailable. Use your email instead."
+        case "WHATSAPP_VERIFICATION_EXPIRED":
+            return "That WhatsApp verification has expired. Create a new message and try again."
+        case "WHATSAPP_VERIFICATION_INVALID":
+            return "That WhatsApp verification is invalid. Create a new message and try again."
         case "ACCOUNT_ALREADY_VERIFIED":
             return "This account is already verified. Please sign in."
         case "OTP_INVALID":
@@ -229,7 +239,14 @@ final class APIClient {
         if http.statusCode == 401, authenticated, retryAfterRefresh, try await refreshSession() {
             return try await perform(path: path, method: method, query: query, bodyData: bodyData, contentType: contentType, authenticated: authenticated, retryAfterRefresh: false)
         }
-        guard (200..<300).contains(http.statusCode) else { throw decodeError(data, fallbackStatus: http.statusCode) }
+        guard (200..<300).contains(http.statusCode) else {
+            let error = decodeError(data, fallbackStatus: http.statusCode)
+            #if DEBUG
+            // Log only request metadata, never credentials or response bodies.
+            NSLog("Limu API: %@ %@ failed (HTTP %ld, code %@)", method, path, http.statusCode, error.code ?? "not provided")
+            #endif
+            throw error
+        }
         return data
     }
 

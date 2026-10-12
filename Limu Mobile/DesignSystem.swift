@@ -111,7 +111,10 @@ enum AppTab: String, CaseIterable {
     }
 
     var requiresCompletedKYC: Bool {
-        false
+        switch self {
+        case .cargo, .shipments, .orderForms: true
+        case .home, .profile: false
+        }
     }
 }
 
@@ -303,7 +306,7 @@ enum PhoneCountries {
         let country = detect(value) ?? defaultCountry
         let digits = country.nationalDigits(from: value)
         guard !digits.isEmpty else { return "" }
-        return "\(country.dialCode) \(country.format(digits))"
+        return "\(country.dialCode)\(digits)"
     }
 
     static func isValidPhone(_ value: String, defaultCountry: PhoneCountryOption = malawi) -> Bool {
@@ -747,7 +750,9 @@ struct PrimaryButton: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .foregroundStyle(LimuColors.darkRed)
-            .background(LimuColors.brandGradient.opacity(disabled ? 0.48 : 1))
+            .background {
+                LimuColors.brandGradient.opacity(disabled ? 0.48 : 1)
+            }
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -932,7 +937,7 @@ struct CountryPhoneField: View {
             return "Choose a country code and enter a \(selectedCountry.lengthDescription) number."
         }
         if selectedCountry.isValid(nationalDigits) {
-            return "Phone will be saved as \(selectedCountry.dialCode) \(selectedCountry.format(nationalDigits))."
+            return "Phone will be saved as \(selectedCountry.dialCode)\(nationalDigits)."
         }
         return "\(selectedCountry.name) numbers require \(selectedCountry.lengthDescription)."
     }
@@ -978,7 +983,7 @@ struct CountryPhoneField: View {
                     country: selectedCountry
                 ) { digits in
                     nationalDigits = digits
-                    writeFormattedPhone()
+                    writeNormalizedPhone()
                 }
                     .padding(.horizontal, 14)
                     .frame(height: 46)
@@ -999,7 +1004,7 @@ struct CountryPhoneField: View {
         .onChange(of: selectedCountry) { _, country in
             nationalDigits = country.nationalDigits(from: nationalDigits)
             displayedNumber = country.format(nationalDigits)
-            writeFormattedPhone()
+            writeNormalizedPhone()
         }
         .sheet(isPresented: $isPresented) {
             CountryCodePicker(selection: $selectedCountry, isPresented: $isPresented)
@@ -1030,10 +1035,10 @@ struct CountryPhoneField: View {
         }
     }
 
-    private func writeFormattedPhone() {
-        let formatted = nationalDigits.isEmpty ? "" : "\(selectedCountry.dialCode) \(selectedCountry.format(nationalDigits))"
-        if text != formatted {
-            text = formatted
+    private func writeNormalizedPhone() {
+        let normalized = nationalDigits.isEmpty ? "" : "\(selectedCountry.dialCode)\(nationalDigits)"
+        if text != normalized {
+            text = normalized
         }
     }
 }

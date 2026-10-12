@@ -24,23 +24,29 @@ struct HomeView: View {
 
     private var homeSections: some View {
         VStack(spacing: 0) {
-            homeSection("Active Cargo", seeAll: { onNavigate(.cargo) }) {
-                ForEach(activeCargo) { cargo in
-                    Button { onNavigate(.cargo) } label: { cargoPreview(cargo) }
-                        .buttonStyle(.plain)
+            if appState.hasCompletedKYC {
+                homeSection("Active Cargo", seeAll: { onNavigate(.cargo) }) {
+                    ForEach(activeCargo) { cargo in
+                        Button { onNavigate(.cargo) } label: { cargoPreview(cargo) }
+                            .buttonStyle(.plain)
+                    }
                 }
-            }
-            if let shipment = appState.shipments.first(where: { $0.status == "In Transit" }) ?? appState.shipments.first {
-                homeSection("Shipment Update", seeAll: { onNavigate(.shipments) }) {
-                    Button { onNavigate(.shipments) } label: { shipmentPreview(shipment) }
-                        .buttonStyle(.plain)
+                if let shipment = appState.shipments.first(where: { $0.status == "In Transit" }) ?? appState.shipments.first {
+                    homeSection("Shipment Update", seeAll: { onNavigate(.shipments) }) {
+                        Button { onNavigate(.shipments) } label: { shipmentPreview(shipment) }
+                            .buttonStyle(.plain)
+                    }
                 }
-            }
-            homeSection("Order Forms", seeAll: { onNavigate(.orderForms) }) {
-                ForEach(appState.orderForms.prefix(2)) { orderForm in
-                    Button { onNavigate(.orderForms) } label: { orderFormPreview(orderForm) }
-                        .buttonStyle(.plain)
+                homeSection("Order Forms", seeAll: { onNavigate(.orderForms) }) {
+                    ForEach(appState.orderForms.prefix(2)) { orderForm in
+                        Button { onNavigate(.orderForms) } label: { orderFormPreview(orderForm) }
+                            .buttonStyle(.plain)
+                    }
                 }
+            } else {
+                kycUnlockCard
+                    .padding(.horizontal, 16)
+                    .padding(.top, 20)
             }
             homeSection("Notifications", seeAll: onNotifications) {
                 ForEach(notifications.filter(\.isUnread).prefix(2)) { notification in
@@ -48,6 +54,30 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    private var kycUnlockCard: some View {
+        Button(action: onOpenKYC) {
+            LimuCard(padding: 16) {
+                HStack(spacing: 14) {
+                    BrandCircleSymbol(systemName: "lock.shield", diameter: 44, symbolSize: 18)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Unlock your logistics")
+                            .font(.limu(size: 14, weight: .bold))
+                            .foregroundStyle(LimuColors.ink)
+                        Text("Complete KYC once to access cargo, shipments, and order forms.")
+                            .font(.limu(size: 12))
+                            .foregroundStyle(LimuColors.secondary)
+                            .lineSpacing(2)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.limu(size: 13, weight: .bold))
+                        .foregroundStyle(LimuColors.copper)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var greeting: String {

@@ -3,6 +3,13 @@ import Combine
 import UIKit
 import UserNotifications
 
+enum WhatsAppVerificationResult {
+    case pending
+    case authenticated
+    case completed
+    case failed
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var isAuthenticated = false
@@ -99,9 +106,10 @@ final class AppState: ObservableObject {
     func register(firstName: String, lastName: String, email: String, phone: String, password: String, clientType: String, businessName: String, location: String) async -> RegistrationPayloadDTO? {
         var registration: RegistrationPayloadDTO?
         let success = await runBusy {
+            let e164Phone = PhoneCountries.normalizedPhone(phone)
             var body: [String: Any] = [
                 "firstName": firstName, "lastName": lastName, "email": email,
-                "phone": phone, "password": password, "clientType": clientType,
+                "phone": e164Phone, "password": password, "clientType": clientType,
                 "location": location, "deviceId": deviceID
             ]
             if !businessName.isEmpty { body["businessName"] = businessName }
@@ -135,14 +143,52 @@ final class AppState: ObservableObject {
         }
     }
 
-    func resendRegistrationVerification(identifier: String, channel: String = "whatsapp") async -> Bool {
-        await runBusy {
-            try await api.send(
+    func resendRegistrationVerification(identifier: String, channel: String = "whatsapp") async -> RegistrationVerificationDeliveryDTO? {
+        var delivery: RegistrationVerificationDeliveryDTO?
+        let success = await runBusy {
+            delivery = try await api.post(
                 "auth/resend-verification.php",
                 body: ["identifier": identifier, "channel": channel, "deviceId": deviceID],
                 authenticated: false
             )
         }
+        return success ? delivery : nil
+    }
+
+    func completeWhatsAppVerification(token: String) async -> WhatsAppVerificationResult {
+        var result = WhatsAppVerificationResult.failed
+        let success = await runBusy {
+            let payload: WhatsAppVerificationStatusDTO = try await api.post(
+                "auth/whatsapp-status.php",
+                body: ["token": token, "deviceId": deviceID],
+                authenticated: false
+            )
+
+            switch payload.state {
+            case "authenticated":
+                guard let client = payload.client, let session = payload.session else {
+                    throw APIError(
+                        status: 500,
+                        message: "The server returned an incomplete verification response.",
+                        code: "INVALID_VERIFICATION_RESPONSE",
+                        fields: [:]
+                    )
+                }
+                api.store(session, persist: true)
+                profile = client
+                do { try await refreshAll() }
+                catch { api.clearSession(); throw error }
+                isAuthenticated = true
+                await registerStoredPushTokenIfAvailable()
+                configurePushNotifications()
+                result = .authenticated
+            case "completed":
+                result = .completed
+            default:
+                result = .pending
+            }
+        }
+        return success ? result : .failed
     }
 
     func requestKYCEmailVerification() async -> KYCEmailVerificationRequestDTO? {

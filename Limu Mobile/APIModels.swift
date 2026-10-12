@@ -99,6 +99,27 @@ struct RegistrationPayloadDTO: Decodable {
     let smsSent: Bool?
     let identifier: String?
     let accountLinked: Bool?
+    let whatsappVerification: WhatsAppVerificationDTO?
+}
+
+struct WhatsAppVerificationDTO: Decodable {
+    let url: String
+    let token: String
+    let expiresAt: String
+}
+
+struct RegistrationVerificationDeliveryDTO: Decodable {
+    let channel: String
+    let expiresAt: String?
+    let testCode: String?
+    let whatsappVerification: WhatsAppVerificationDTO?
+}
+
+struct WhatsAppVerificationStatusDTO: Decodable {
+    let state: String
+    let expiresAt: String?
+    let client: ProfileDTO?
+    let session: SessionDTO?
 }
 
 struct KYCEmailVerificationRequestDTO: Decodable {

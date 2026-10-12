@@ -85,13 +85,13 @@ struct ContentView: View {
                         )
                     }
                     Tab("Cargo", systemImage: AppTab.cargo.icon, value: AppTab.cargo) {
-                        CargoView()
+                        kycGated(feature: "Cargo") { CargoView() }
                     }
                     Tab("Shipments", systemImage: AppTab.shipments.icon, value: AppTab.shipments) {
-                        ShipmentsView()
+                        kycGated(feature: "Shipments") { ShipmentsView() }
                     }
                     Tab("Order Forms", systemImage: AppTab.orderForms.icon, value: AppTab.orderForms) {
-                        OrderFormsView()
+                        kycGated(feature: "Order Forms") { OrderFormsView() }
                     }
                     Tab("Profile", systemImage: AppTab.profile.icon, value: AppTab.profile) {
                         ProfileView(shouldOpenKYC: $shouldOpenKYC) {
@@ -108,6 +108,15 @@ struct ContentView: View {
             }
         }
         .background(LimuColors.cream)
+    }
+
+    @ViewBuilder
+    private func kycGated<Content: View>(feature: String, @ViewBuilder content: () -> Content) -> some View {
+        if appState.hasCompletedKYC {
+            content()
+        } else {
+            KYCRestrictedView(feature: feature, onCompleteKYC: openKYC)
+        }
     }
 
     private var guardedTabSelection: Binding<AppTab> {
