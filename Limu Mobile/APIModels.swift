@@ -96,6 +96,7 @@ struct RegistrationPayloadDTO: Decodable {
     let channel: String?
     let phone: String?
     let whatsappSent: Bool?
+    let smsSent: Bool?
     let identifier: String?
     let accountLinked: Bool?
 }

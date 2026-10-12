@@ -47,6 +47,15 @@ enum LimuColors {
     static let danger = Color(hex: "B91C1C")
 }
 
+enum LimuLinks {
+    /// Published privacy policy. The same URL is declared in App Store Connect —
+    /// keep the two in sync, Apple rejects a listing whose policy link is dead.
+    static let privacyPolicy = URL(string: "https://portal.limu.co.mw/policy")!
+    /// Public terms and conditions page (required by TestFlight / App Store Connect).
+    /// Provided by LIMU at the website path `/terms`; confirm the final host before submission.
+    static let terms = URL(string: "https://portal.limu.co.mw/terms")!
+}
+
 extension Font {
     static func limu(size: CGFloat, weight: Weight = .regular) -> Font {
         let name: String
@@ -753,6 +762,8 @@ struct LimuTextField: View {
     var secure = false
     var keyboard: UIKeyboardType = .default
 
+    @State private var isRevealed = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
@@ -761,7 +772,26 @@ struct LimuTextField: View {
                 .foregroundStyle(LimuColors.secondary)
             Group {
                 if secure {
-                    SecureField(placeholder, text: $text)
+                    HStack(spacing: 8) {
+                        Group {
+                            if isRevealed {
+                                TextField(placeholder, text: $text)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                            } else {
+                                SecureField(placeholder, text: $text)
+                            }
+                        }
+                        Button { isRevealed.toggle() } label: {
+                            Image(systemName: isRevealed ? "eye.slash" : "eye")
+                                .font(.system(size: 16))
+                                .foregroundStyle(LimuColors.muted)
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isRevealed ? "Hide password" : "Show password")
+                    }
                 } else {
                     TextField(placeholder, text: $text)
                         .keyboardType(keyboard)

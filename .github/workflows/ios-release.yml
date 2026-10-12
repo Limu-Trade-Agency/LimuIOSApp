@@ -1,0 +1,166 @@
+name: iOS release build
+
+# Produces the signed App Store archive and uploads it to TestFlight.
+#
+# PREREQUISITES — none of these exist yet (release checklist L1/L2). This workflow
+# will fail until an Apple Developer Program membership is in place and the six
+# repository secrets below are populated.
+#
+#   APPLE_TEAM_ID              10-character Apple Developer Team ID
+#   ASC_KEY_ID                 App Store Connect API key ID
+#   ASC_ISSUER_ID              App Store Connect API issuer ID
+#   ASC_KEY_P8_BASE64          base64 of the AuthKey_XXXXXXXX.p8 file
+#   DIST_CERT_P12_BASE64       base64 of the Apple Distribution .p12
+#   DIST_CERT_P12_PASSWORD     password for that .p12
+#
+# Create the API key with the "App Manager" role, under
+# App Store Connect -> Users and Access -> Integrations -> App Store Connect API.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload the build to TestFlight after archiving"
+        type: boolean
+        default: true
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SCHEME: "Limu Mobile"
+  PROJECT: "Limu Mobile.xcodeproj"
+  CONFIGURATION: Release
+
+jobs:
+  archive:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest installed Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Import the distribution certificate
+        env:
+          P12_BASE64: ${{ secrets.DIST_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DIST_CERT_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo -n "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/dist.p12" -P "$P12_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+
+          rm -f "$RUNNER_TEMP/dist.p12"
+
+      - name: Write the App Store Connect API key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/private_keys"
+          echo -n "$ASC_KEY_P8_BASE64" | base64 --decode \
+            > "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      - name: Stamp the build number
+        id: version
+        run: |
+          set -euo pipefail
+          # Marketing version stays under source control; the build number is the
+          # run number, so every upload to App Store Connect is unique and ordered.
+          BUILD_NUMBER="${{ github.run_number }}"
+          MARKETING_VERSION="$(grep -m1 'MARKETING_VERSION' "$PROJECT/project.pbxproj" \
+            | sed 's/.*= \(.*\);/\1/' | tr -d ' ')"
+          echo "build=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "marketing=$MARKETING_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building $MARKETING_VERSION ($BUILD_NUMBER)"
+
+      - name: Prepare export options
+        run: |
+          set -euo pipefail
+          sed "s/REPLACE_WITH_TEAM_ID/${{ secrets.APPLE_TEAM_ID }}/" \
+            docs/release/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Archive
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/LimuMobile.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8" \
+            -authenticationKeyID "${{ secrets.ASC_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.ASC_ISSUER_ID }}" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}" \
+            CODE_SIGN_STYLE=Automatic
+
+      - name: Verify the privacy manifest made it into the bundle
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/LimuMobile.xcarchive/Products/Applications/$SCHEME.app"
+          if [ ! -f "$APP/PrivacyInfo.xcprivacy" ]; then
+            echo "::error::PrivacyInfo.xcprivacy is missing from the app bundle."
+            exit 1
+          fi
+          plutil -lint "$APP/PrivacyInfo.xcprivacy"
+
+      - name: Export the IPA
+        run: |
+          set -euo pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/LimuMobile.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8" \
+            -authenticationKeyID "${{ secrets.ASC_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.ASC_ISSUER_ID }}"
+
+      - name: Upload to TestFlight
+        if: inputs.upload != false
+        run: |
+          set -euo pipefail
+          IPA="$(find "$RUNNER_TEMP/export" -name '*.ipa' -maxdepth 1 | head -1)"
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA" \
+            --apiKey "${{ secrets.ASC_KEY_ID }}" \
+            --apiIssuer "${{ secrets.ASC_ISSUER_ID }}"
+
+      - name: Keep the archive and IPA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: limu-mobile-${{ steps.version.outputs.marketing }}-${{ steps.version.outputs.build }}
+          path: |
+            ${{ runner.temp }}/export/*.ipa
+            ${{ runner.temp }}/LimuMobile.xcarchive
+          retention-days: 30
+
+      - name: Clean up signing material
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/private_keys"
+          security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true

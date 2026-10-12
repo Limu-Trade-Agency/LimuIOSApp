@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Distribution method for App Store Connect / TestFlight. -->
+	<key>destination</key>
+	<string>export</string>
+	<key>method</key>
+	<string>app-store-connect</string>
+
+	<!-- Replace with the Limu Trade Apple Developer Team ID (10 characters). -->
+	<key>teamID</key>
+	<string>REPLACE_WITH_TEAM_ID</string>
+
+	<key>signingStyle</key>
+	<string>automatic</string>
+
+	<!-- Upload the dSYM so App Store Connect can symbolicate crash reports.
+	     This matters more than usual here: no crash-reporting SDK is integrated (L9),
+	     so Apple's own crash reports are the only source of stack traces. -->
+	<key>uploadSymbols</key>
+	<true/>
+
+	<!-- Keep the full bitwidth app; App Store thinning happens server-side. -->
+	<key>compileBitcode</key>
+	<false/>
+
+	<key>stripSwiftSymbols</key>
+	<true/>
+
+	<!-- Let Xcode manage the App Store distribution profile via the
+	     App Store Connect API key passed to xcodebuild. -->
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>

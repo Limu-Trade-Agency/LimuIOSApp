@@ -2,7 +2,8 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject private var appState: AppState
-    private enum Screen { case profile, kyc, edit, password }
+    @Environment(\.openURL) private var openURL
+    private enum Screen { case profile, kyc, edit, password, deleteAccount }
 
     @Binding var shouldOpenKYC: Bool
     @State private var screen: Screen = .profile
@@ -17,6 +18,8 @@ struct ProfileView: View {
             case .kyc: KYCView(step: $kycStep, completed: $kycCompleted) { screen = .profile }
             case .edit: EditProfileView(profile: appState.profile) { screen = .profile }
             case .password: ChangePasswordView { screen = .profile }
+            case .deleteAccount:
+                DeleteAccountView(onBack: { screen = .profile }, onDeleted: onLogout)
             }
         }
         .onAppear(perform: openKYCIfRequested)
@@ -74,7 +77,9 @@ struct ProfileView: View {
                     LimuCard(padding: 0) {
                         actionRow(icon: "pencil", title: "Edit Profile") { screen = .edit }
                         actionRow(icon: "lock", title: "Change Password") { screen = .password }
+                        actionRow(icon: "hand.raised", title: "Privacy Policy", external: true) { openURL(LimuLinks.privacyPolicy) }
                         actionRow(icon: "rectangle.portrait.and.arrow.right", title: "Sign Out", danger: true, action: onLogout)
+                        actionRow(icon: "trash", title: "Delete Account", danger: true) { screen = .deleteAccount }
                     }
                     Color.clear.frame(height: 24)
                 }
@@ -132,13 +137,16 @@ struct ProfileView: View {
         }
     }
 
-    private func actionRow(icon: String, title: String, danger: Bool = false, action: @escaping () -> Void) -> some View {
+    private func actionRow(icon: String, title: String, danger: Bool = false, external: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon).font(.limu(size: 17, weight: .medium)).frame(width: 22)
                 Text(title).font(.limu(size: 14, weight: .semibold))
                 Spacer()
-                if !danger { Image(systemName: "chevron.right").font(.limu(size: 13, weight: .bold)).foregroundStyle(Color(hex: "D1D5DB")) }
+                if !danger {
+                    Image(systemName: external ? "arrow.up.right" : "chevron.right")
+                        .font(.limu(size: 13, weight: .bold)).foregroundStyle(Color(hex: "D1D5DB"))
+                }
             }
             .foregroundStyle(danger ? LimuColors.danger : LimuColors.ink)
             .padding(.horizontal, 16).frame(height: 50)
@@ -255,6 +263,7 @@ private struct KYCView: View {
                     .padding(20)
                     .padding(.bottom, 150)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: step) { _, _ in
                     proxy.scrollTo("kyc-form-top", anchor: .top)
                 }
@@ -305,6 +314,12 @@ private struct KYCView: View {
                     Text(consentCopy)
                         .font(.limu(size: 12)).foregroundStyle(Color(hex: "374151")).lineSpacing(5)
                 }
+                HStack(spacing: 14) {
+                    Link("Read the full Terms & Conditions", destination: LimuLinks.terms)
+                    Link("Privacy Policy", destination: LimuLinks.privacyPolicy)
+                }
+                .font(.limu(size: 12, weight: .semibold))
+                .tint(LimuColors.copper)
                 Button { acceptedTerms.toggle() } label: {
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: acceptedTerms ? "checkmark.square.fill" : "square").font(.limu(size: 19)).foregroundStyle(acceptedTerms ? LimuColors.copper : LimuColors.muted)
@@ -799,5 +814,115 @@ private struct KYCEmailVerificationSheet: View {
         } else {
             sendFailed = true
         }
+    }
+}
+
+/// Account deletion, required by App Store Review Guideline 5.1.1(v).
+///
+/// Deliberately a two-key operation: the account password, plus the word DELETE
+/// typed out. Deletion is irreversible on the server, so an accidental tap on a
+/// phone someone left unlocked should not be enough to trigger it.
+private struct DeleteAccountView: View {
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.openURL) private var openURL
+    let onBack: () -> Void
+    let onDeleted: () -> Void
+
+    @State private var password = ""
+    @State private var confirmation = ""
+
+    private var canDelete: Bool {
+        !password.isEmpty
+            && confirmation.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                == AppState.accountDeletionConfirmation
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            BackHeader(backTitle: "Profile", title: "Delete Account", onBack: onBack)
+            ScrollView {
+                VStack(spacing: 14) {
+                    warning
+                    SectionCard("Confirm It Is You") {
+                        LimuTextField(
+                            label: "Password",
+                            placeholder: "Enter your password",
+                            text: $password,
+                            secure: true
+                        )
+                        LimuTextField(
+                            label: "Type DELETE to confirm",
+                            placeholder: AppState.accountDeletionConfirmation,
+                            text: $confirmation
+                        )
+                        .padding(.top, 12)
+                    }
+                    deleteButton
+                    Button("Read our privacy policy") { openURL(LimuLinks.privacyPolicy) }
+                        .font(.limu(size: 12, weight: .semibold))
+                        .foregroundStyle(LimuColors.copper)
+                        .buttonStyle(.plain)
+                }.padding(20)
+            }
+        }.background(LimuColors.cream)
+    }
+
+    private var warning: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("This cannot be undone", systemImage: "exclamationmark.triangle.fill")
+                .font(.limu(size: 14, weight: .bold))
+                .foregroundStyle(LimuColors.danger)
+            Text("Deleting your account permanently removes:")
+                .font(.limu(size: 13))
+                .foregroundStyle(Color(hex: "374151"))
+            VStack(alignment: .leading, spacing: 6) {
+                bullet("Your profile and KYC details")
+                bullet("Your cargo, shipment and order-form history in this app")
+                bullet("Your saved sign-in and notification settings on this device")
+            }
+            Text("Records Limu Trade must keep for customs, tax or accounting purposes are retained as set out in our privacy policy. If you have an open consignment, speak to us before deleting.")
+                .font(.limu(size: 11))
+                .foregroundStyle(LimuColors.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(LimuColors.dangerWash)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(LimuColors.danger.opacity(0.25), lineWidth: 1)
+        }
+    }
+
+    private func bullet(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Circle().fill(LimuColors.danger).frame(width: 4, height: 4).padding(.top, 6)
+            Text(text)
+                .font(.limu(size: 12))
+                .foregroundStyle(Color(hex: "374151"))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var deleteButton: some View {
+        Button {
+            Task {
+                if await appState.deleteAccount(password: password) { onDeleted() }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if appState.isBusy { ProgressView().tint(.white).controlSize(.small) }
+                Text(appState.isBusy ? "Deleting…" : "Delete My Account")
+                    .font(.limu(size: 15, weight: .bold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .foregroundStyle(.white)
+            .background(LimuColors.danger.opacity(canDelete ? 1 : 0.4))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!canDelete || appState.isBusy)
     }
 }

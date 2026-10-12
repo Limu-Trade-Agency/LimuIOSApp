@@ -22,6 +22,10 @@ final class AppState: ObservableObject {
     private let api = APIClient.shared
     private let demoMode: Bool
     private static let storedPushTokenKey = "limuAPNsToken"
+    /// Typed back by the user, and echoed to the API, before an account is deleted.
+    /// `nonisolated` so the delete screen can compare against it outside the actor,
+    /// matching how `KeychainStore.service` is declared in `APIClient.swift`.
+    nonisolated static let accountDeletionConfirmation = "DELETE"
 
     init() {
         let arguments = ProcessInfo.processInfo.arguments
@@ -135,7 +139,7 @@ final class AppState: ObservableObject {
         await runBusy {
             try await api.send(
                 "auth/resend-verification.php",
-                body: ["identifier": identifier, "channel": channel],
+                body: ["identifier": identifier, "channel": channel, "deviceId": deviceID],
                 authenticated: false
             )
         }
@@ -193,10 +197,52 @@ final class AppState: ObservableObject {
     }
 
     func logout() async {
-        if !demoMode {
+        // Guarded on isAuthenticated so this stays a no-op when the session has
+        // already gone — deleteAccount() clears it before the view unwinds.
+        if !demoMode, isAuthenticated {
             await revokeStoredPushToken()
             try? await api.send("auth/logout.php", body: ["allSessions": false])
         }
+        clearLocalState()
+    }
+
+    /// Permanently deletes the signed-in client's account.
+    ///
+    /// Required by App Store Review Guideline 5.1.1(v): an app that lets people
+    /// create an account has to let them start deleting it from inside the app.
+    /// The password is re-checked server side so a borrowed unlocked phone
+    /// cannot wipe someone's account.
+    func deleteAccount(password: String) async -> Bool {
+        guard !demoMode else {
+            clearLocalState()
+            return true
+        }
+
+        // Drop the device off the push register first, while the session is
+        // still valid enough to authenticate the call.
+        await revokeStoredPushToken()
+
+        let deleted = await runBusy {
+            try await api.send(
+                "profile/delete.php",
+                method: "DELETE",
+                body: ["password": password, "confirm": Self.accountDeletionConfirmation]
+            )
+        }
+
+        guard deleted else {
+            // Still signed in, so put the device back on the push register
+            // rather than leaving it silently unreachable.
+            await registerStoredPushTokenIfAvailable()
+            return false
+        }
+
+        UserDefaults.standard.removeObject(forKey: Self.storedPushTokenKey)
+        clearLocalState()
+        return true
+    }
+
+    private func clearLocalState() {
         api.clearSession()
         isAuthenticated = false
         profile = nil
@@ -208,10 +254,24 @@ final class AppState: ObservableObject {
         notifications = []
     }
 
+    private func emptyIfKYCRequired<Value>(_ load: () async throws -> [Value]) async throws -> [Value] {
+        do {
+            return try await load()
+        } catch let error as APIError where error.code == "KYC_REQUIRED" {
+            return []
+        }
+    }
+
     func refreshAll() async throws {
         let dashboardDTO: DashboardDTO = try await api.get("dashboard.php")
-        let cargoDTOs: [CargoDTO] = try await api.get("cargo/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
-        let shipmentDTOs: [ShipmentDTO] = try await api.get("shipments/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
+        // Until KYC is complete the backend answers these list endpoints with 403 KYC_REQUIRED;
+        // that means "no data yet", not a failed login, so the dashboards render empty.
+        let cargoDTOs: [CargoDTO] = try await emptyIfKYCRequired {
+            try await api.get("cargo/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
+        }
+        let shipmentDTOs: [ShipmentDTO] = try await emptyIfKYCRequired {
+            try await api.get("shipments/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
+        }
         let orderFormDTOs: [OrderFormDTO]
         do {
             orderFormDTOs = try await fetchOrderFormDTOs(clientID: dashboardDTO.client.id)

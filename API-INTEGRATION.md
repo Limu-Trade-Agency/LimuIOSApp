@@ -37,6 +37,10 @@ These V4 routes are available in the backend code and are wired into the app:
 3. `GET /categories/get.php`
 4. `GET /pricing/shipment.php` with `GET /shipment-pricelist.php` as a flat compatibility alias for production deployments
 
+`DELETE /profile/delete.php` (account deletion, required by App Store Review Guideline 5.1.1(v)) is
+implemented in the portal repository but **not yet deployed**. Contract and rollout notes in
+`ACCOUNT-DELETION.md`.
+
 ### Response improvements
 
 1. **Shipment route fields**
