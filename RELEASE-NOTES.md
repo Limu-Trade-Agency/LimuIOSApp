@@ -17,6 +17,12 @@
 (First releases show the description rather than "What's New"; this text is kept here so the field
 can be filled if App Store Connect requests it.)
 
+### Changes from the 9 Oct 2026 Worketech deployment review
+
+Password show/hide toggle on all password fields; three-step registration; password reset split into
+a code screen and a new-password screen; keyboard-safe auth layouts; Terms & Conditions link
+(`LimuLinks.terms`). Details and open items: [`docs/release/DEPLOYMENT-REVIEW-2026-10-09.md`](docs/release/DEPLOYMENT-REVIEW-2026-10-09.md).
+
 ### What is in this build
 
 **Account and access**

@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct AuthenticationView: View {
-    enum Mode { case signIn, register, verifyEmail, forgot, reset, claim }
+    enum Mode { case signIn, register, verifyEmail, forgot, reset, resetPassword, claim }
 
     @State private var mode: Mode = .signIn
+    @State private var registerStep = 0
+    @State private var keyboardVisible = false
     @State private var email = ""
     @State private var password = ""
     @State private var firstName = ""
@@ -75,7 +77,8 @@ struct AuthenticationView: View {
     var body: some View {
         VStack(spacing: 0) {
             if mode == .verifyEmail { verificationHeader }
-            else if [.forgot, .reset, .claim].contains(mode) { forgotHeader }
+            else if [.forgot, .reset, .resetPassword, .claim].contains(mode) { forgotHeader }
+            else if keyboardVisible { compactHeader }
             else { heroHeader }
             if mode == .signIn || mode == .register { authTabs }
             ScrollView {
@@ -85,15 +88,34 @@ struct AuthenticationView: View {
                     case .register: registerForm
                     case .verifyEmail: verificationForm
                     case .forgot: forgotForm
-                    case .reset: resetForm
+                    case .reset: resetCodeForm
+                    case .resetPassword: resetPasswordForm
                     case .claim: claimForm
                     }
                 }
                 .padding(24)
+                .padding(.bottom, keyboardVisible ? 40 : 0)
             }
             .scrollDismissesKeyboard(.interactively)
         }
         .background(LimuColors.cream.ignoresSafeArea())
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = false }
+        }
+    }
+
+    /// Slim brand bar shown while the keyboard is up so the fields keep the room.
+    private var compactHeader: some View {
+        LimuOutlineLogoMark(width: 72)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background { BrandHeaderBackdrop() }
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(LimuColors.brandGradient).frame(height: 3)
+            }
     }
 
     private var heroHeader: some View {
@@ -121,7 +143,14 @@ struct AuthenticationView: View {
     private var forgotHeader: some View {
         AppHeader {
             Button {
-                returnToSignIn()
+                if mode == .resetPassword {
+                    mode = .reset
+                    newPassword = ""
+                    confirmNewPassword = ""
+                    appState.clearError()
+                } else {
+                    returnToSignIn()
+                }
             } label: {
                 Label("Back", systemImage: "chevron.left")
                     .font(.limu(size: 14, weight: .medium))
@@ -141,7 +170,8 @@ struct AuthenticationView: View {
     private var authHeaderTitle: String {
         switch mode {
         case .claim: return "Claim Account"
-        case .reset: return "Create New Password"
+        case .reset: return "Enter Verification Code"
+        case .resetPassword: return "Create New Password"
         default: return "Reset Password"
         }
     }
@@ -149,7 +179,8 @@ struct AuthenticationView: View {
     private var authHeaderSubtitle: String {
         switch mode {
         case .claim: return "Connect your existing Limu client record"
-        case .reset: return "Enter the code we sent you"
+        case .reset: return "Step 1 of 2: confirm it's you"
+        case .resetPassword: return "Step 2 of 2: choose a new password"
         default: return "We'll send a verification code by email and WhatsApp"
         }
     }
@@ -158,6 +189,7 @@ struct AuthenticationView: View {
         AppHeader {
             Button {
                 mode = .register
+                registerStep = 2
                 verificationCode = ""
                 verificationResent = false
                 verificationEmailSent = true
@@ -181,7 +213,7 @@ struct AuthenticationView: View {
     private var authTabs: some View {
         HStack(spacing: 0) {
             authTab("Sign In", selected: mode == .signIn) { mode = .signIn }
-            authTab("Register", selected: mode == .register) { mode = .register }
+            authTab("Register", selected: mode == .register) { mode = .register; registerStep = 0 }
         }
         .background(LimuColors.white)
         .overlay(alignment: .bottom) { Rectangle().fill(LimuColors.charcoal.opacity(0.1)).frame(height: 1) }
@@ -265,36 +297,99 @@ struct AuthenticationView: View {
         }
     }
 
+    private var registerStepTitles: [String] { ["Account", "Contact", "Password"] }
+
+    private var isRegisterStepIncomplete: Bool {
+        switch registerStep {
+        case 0: return firstName.trimmingCharacters(in: .whitespaces).isEmpty || lastName.trimmingCharacters(in: .whitespaces).isEmpty
+        case 1: return !isRegistrationPhoneValid || !email.contains("@") || location.isEmpty || (clientType == "Business" && businessName.isEmpty)
+        default: return password != confirmPassword || !isRegistrationPasswordValid
+        }
+    }
+
+    private var registerStepIndicator: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                ForEach(registerStepTitles.indices, id: \.self) { index in
+                    Capsule().fill(index <= registerStep ? LimuColors.copper : LimuColors.divider).frame(height: 4)
+                }
+            }
+            Text("Step \(registerStep + 1) of \(registerStepTitles.count): \(registerStepTitles[registerStep])")
+                .font(.limu(size: 11, weight: .medium))
+                .foregroundStyle(LimuColors.secondary)
+        }
+    }
+
     private var registerForm: some View {
         VStack(spacing: 16) {
-            accountTypeSelector
-            HStack(spacing: 12) {
-                LimuTextField(label: "First Name", placeholder: "Thandiwe", text: $firstName)
-                LimuTextField(label: "Last Name", placeholder: "Banda", text: $lastName)
-            }
-            CountryPhoneField(label: "Phone Number", text: $phone)
-            LimuTextField(label: "Email Address", placeholder: "your@email.com", text: $email, keyboard: .emailAddress)
-            DistrictPickerField(label: "District", selection: $location)
-            if clientType == "Business" {
-                LimuTextField(label: "Business Name", placeholder: "Your business", text: $businessName)
-            }
-            LimuTextField(label: "Password", placeholder: "Create a strong password", text: $password, secure: true)
-            passwordRequirements
-            LimuTextField(label: "Confirm Password", placeholder: "Repeat password", text: $confirmPassword, secure: true)
-            PrimaryButton(title: appState.isBusy ? "Creating Account…" : "Create Account", loading: appState.isBusy, disabled: password != confirmPassword || !isRegistrationPasswordValid || !isRegistrationPhoneValid || location.isEmpty || (clientType == "Business" && businessName.isEmpty)) {
-                Task {
-                    if let registration = await appState.register(firstName: firstName, lastName: lastName, email: email, phone: phone, password: password, clientType: clientType, businessName: businessName, location: location) {
-                        let channel = (registration.channel ?? "email").lowercased()
-                        verificationChannel = channel == "sms" ? "sms" : "email"
-                        verificationEmail = registration.email
-                        verificationIdentifier = registration.identifier.flatMap { $0.isEmpty ? nil : $0 } ?? email
-                        verificationPhone = (registration.phone ?? "").isEmpty ? phone : (registration.phone ?? phone)
-                        verificationCode = ""
-                        verificationResent = false
-                        verificationEmailSent = verificationChannel == "sms" ? (registration.smsSent ?? true) : registration.emailSent
-                        mode = .verifyEmail
-                    }
+            registerStepIndicator
+            switch registerStep {
+            case 0:
+                accountTypeSelector
+                HStack(spacing: 12) {
+                    LimuTextField(label: "First Name", placeholder: "Thandiwe", text: $firstName)
+                    LimuTextField(label: "Last Name", placeholder: "Banda", text: $lastName)
                 }
+            case 1:
+                CountryPhoneField(label: "Phone Number", text: $phone)
+                LimuTextField(label: "Email Address", placeholder: "your@email.com", text: $email, keyboard: .emailAddress)
+                DistrictPickerField(label: "District", selection: $location)
+                if clientType == "Business" {
+                    LimuTextField(label: "Business Name", placeholder: "Your business", text: $businessName)
+                }
+            default:
+                LimuTextField(label: "Password", placeholder: "Create a strong password", text: $password, secure: true)
+                passwordRequirements
+                LimuTextField(label: "Confirm Password", placeholder: "Repeat password", text: $confirmPassword, secure: true)
+                termsNotice
+            }
+            HStack(spacing: 10) {
+                if registerStep > 0 {
+                    Button("Back") { registerStep -= 1 }
+                        .font(.limu(size: 14, weight: .bold))
+                        .foregroundStyle(Color(hex: "482A28"))
+                        .frame(maxWidth: .infinity).frame(height: 48)
+                        .background(Color(hex: "F5EEE6"))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .buttonStyle(.plain)
+                }
+                if registerStep < registerStepTitles.count - 1 {
+                    PrimaryButton(title: "Continue", disabled: isRegisterStepIncomplete) { registerStep += 1 }
+                } else {
+                    PrimaryButton(title: appState.isBusy ? "Creating Account…" : "Create Account", loading: appState.isBusy, disabled: isRegisterStepIncomplete) { submitRegistration() }
+                }
+            }
+        }
+    }
+
+    private var termsNotice: some View {
+        VStack(spacing: 2) {
+            Text("By creating an account you agree to our")
+            HStack(spacing: 4) {
+                Link("Terms & Conditions", destination: LimuLinks.terms)
+                Text("and")
+                Link("Privacy Policy", destination: LimuLinks.privacyPolicy)
+            }
+        }
+        .font(.limu(size: 11))
+        .foregroundStyle(LimuColors.muted)
+        .tint(LimuColors.copper)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func submitRegistration() {
+        Task {
+            if let registration = await appState.register(firstName: firstName, lastName: lastName, email: email, phone: phone, password: password, clientType: clientType, businessName: businessName, location: location) {
+                let channel = (registration.channel ?? "email").lowercased()
+                verificationChannel = channel == "sms" ? "sms" : "email"
+                verificationEmail = registration.email
+                verificationIdentifier = registration.identifier.flatMap { $0.isEmpty ? nil : $0 } ?? email
+                verificationPhone = (registration.phone ?? "").isEmpty ? phone : (registration.phone ?? phone)
+                verificationCode = ""
+                verificationResent = false
+                verificationEmailSent = verificationChannel == "sms" ? (registration.smsSent ?? true) : registration.emailSent
+                mode = .verifyEmail
             }
         }
     }
@@ -521,7 +616,7 @@ struct AuthenticationView: View {
         }
     }
 
-    private var resetForm: some View {
+    private var resetCodeForm: some View {
         VStack(spacing: 16) {
             Text(resetMessage)
                 .font(.limu(size: 13))
@@ -534,6 +629,11 @@ struct AuthenticationView: View {
                     let digits = value.filter(\.isNumber)
                     resetCode = String(digits.prefix(6))
                 }
+
+            PrimaryButton(title: "Continue", disabled: resetCode.count != 6) {
+                appState.clearError()
+                mode = .resetPassword
+            }
 
             VStack(spacing: 8) {
                 Button(appState.isBusy ? "Sending…" : "Resend code") {
@@ -557,7 +657,11 @@ struct AuthenticationView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: resetResent)
+        }
+    }
 
+    private var resetPasswordForm: some View {
+        VStack(spacing: 16) {
             LimuTextField(label: "New Password", placeholder: "Minimum 8 characters", text: $newPassword, secure: true)
             newPasswordRequirements
             LimuTextField(label: "Confirm New Password", placeholder: "Repeat password", text: $confirmNewPassword, secure: true)
@@ -565,6 +669,9 @@ struct AuthenticationView: View {
                 Task {
                     if await appState.completePasswordReset(identifier: resetIdentifier, code: resetCode, password: newPassword) {
                         returnToSignIn()
+                    } else {
+                        // A rejected code is the likeliest failure: send the user back to re-enter it.
+                        mode = .reset
                     }
                 }
             }
@@ -604,6 +711,7 @@ struct AuthenticationView: View {
 
     private func returnToSignIn() {
         mode = .signIn
+        registerStep = 0
         oneTimeToken = ""
         newPassword = ""
         confirmNewPassword = ""

@@ -263,6 +263,7 @@ private struct KYCView: View {
                     .padding(20)
                     .padding(.bottom, 150)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: step) { _, _ in
                     proxy.scrollTo("kyc-form-top", anchor: .top)
                 }
@@ -297,6 +298,12 @@ private struct KYCView: View {
                     Text(consentCopy)
                         .font(.limu(size: 12)).foregroundStyle(Color(hex: "374151")).lineSpacing(5)
                 }
+                HStack(spacing: 14) {
+                    Link("Read the full Terms & Conditions", destination: LimuLinks.terms)
+                    Link("Privacy Policy", destination: LimuLinks.privacyPolicy)
+                }
+                .font(.limu(size: 12, weight: .semibold))
+                .tint(LimuColors.copper)
                 Button { acceptedTerms.toggle() } label: {
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: acceptedTerms ? "checkmark.square.fill" : "square").font(.limu(size: 19)).foregroundStyle(acceptedTerms ? LimuColors.copper : LimuColors.muted)
