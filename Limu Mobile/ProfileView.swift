@@ -3,7 +3,7 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.openURL) private var openURL
-    private enum Screen { case profile, kyc, edit, password, deleteAccount }
+    private enum Screen { case profile, clientProfile, password, deleteAccount }
 
     @Binding var shouldOpenKYC: Bool
     @State private var screen: Screen = .profile
@@ -15,8 +15,7 @@ struct ProfileView: View {
         Group {
             switch screen {
             case .profile: profile
-            case .kyc: KYCView(step: $kycStep, completed: $kycCompleted) { screen = .profile }
-            case .edit: EditProfileView(profile: appState.profile) { screen = .profile }
+            case .clientProfile: ClientProfileEditor(step: $kycStep, completed: $kycCompleted) { screen = .profile }
             case .password: ChangePasswordView { screen = .profile }
             case .deleteAccount:
                 DeleteAccountView(onBack: { screen = .profile }, onDeleted: onLogout)
@@ -49,17 +48,33 @@ struct ProfileView: View {
                         }
                     }
                     SectionCard("Personal Details") {
+                        DetailRow(label: "Account Type", value: appState.clientType)
                         DetailRow(label: "Full Name", value: appState.profile?.fullName ?? "—")
                         DetailRow(label: "Phone", value: appState.profile?.phone ?? "—")
                         DetailRow(label: "Email", value: appState.profile?.email ?? "—")
                         DetailRow(label: "District", value: appState.profile?.location ?? "—")
+                        DetailRow(label: "Gender", value: displayValue(appState.profile?.gender))
+                        DetailRow(label: "Date of Birth", value: displayValue(appState.profile?.dateOfBirth))
+                        DetailRow(label: "Occupations", value: displayValue(appState.profile?.occupations?.joined(separator: ", ")))
+                        DetailRow(label: "Interests", value: displayValue(appState.profile?.interests?.joined(separator: ", ")))
+                        DetailRow(label: "Identification Type", value: displayValue(appState.profile?.idType))
+                        DetailRow(label: "Identification Number", value: displayValue(appState.profile?.idNumber))
                     }
-                    SectionCard("Business Details") {
-                        DetailRow(label: "Business Name", value: appState.profile?.businessName ?? "—")
-                        DetailRow(label: "Category", value: appState.profile?.businessCategory ?? "—")
-                        DetailRow(label: "Account Type", value: appState.profile?.clientType ?? "—")
+                    if appState.clientType.caseInsensitiveCompare("Business") == .orderedSame {
+                        SectionCard("Business Details") {
+                            DetailRow(label: "Business Name", value: displayValue(appState.profile?.businessName))
+                            DetailRow(label: "Category", value: displayValue(appState.profile?.businessCategory))
+                            DetailRow(label: "Business Size", value: displayValue(appState.profile?.businessSize))
+                            DetailRow(label: "Offering", value: displayValue(appState.profile?.businessOffering))
+                        }
                     }
-                    SectionCard("KYC Details") {
+                    SectionCard("Trading Details") {
+                        DetailRow(label: "Trade Intent", value: displayValue(appState.profile?.tradeIntent))
+                        DetailRow(label: "Goods Categories", value: displayValue(appState.profile?.goodsCategories?.joined(separator: ", ")))
+                        DetailRow(label: "Service Categories", value: displayValue(appState.profile?.serviceCategories?.joined(separator: ", ")))
+                        DetailRow(label: "Notes", value: displayValue(appState.profile?.kycNotes))
+                    }
+                    SectionCard("Verification") {
                         HStack {
                             Text("Status").font(.limu(size: 13)).foregroundStyle(Color(hex: "374151"))
                             Spacer()
@@ -67,15 +82,17 @@ struct ProfileView: View {
                         }
                         .padding(.bottom, 10)
                         .overlay(alignment: .bottom) { Rectangle().fill(LimuColors.softCream).frame(height: 1) }
-                        Button(appState.hasCompletedKYC || kycCompleted ? "View KYC Details" : "Complete KYC") { screen = .kyc }
-                            .font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.copper)
-                            .frame(maxWidth: .infinity).frame(height: 42)
-                            .background(LimuColors.copperWash).clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay { RoundedRectangle(cornerRadius: 10).stroke(LimuColors.peach, lineWidth: 1.5) }
-                            .buttonStyle(.plain).padding(.top, 10)
+                        if !appState.hasCompletedKYC && !kycCompleted {
+                            Button("Complete Client Profile", action: openProfileEditor)
+                                .font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.copper)
+                                .frame(maxWidth: .infinity).frame(height: 42)
+                                .background(LimuColors.copperWash).clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay { RoundedRectangle(cornerRadius: 10).stroke(LimuColors.peach, lineWidth: 1.5) }
+                                .buttonStyle(.plain).padding(.top, 10)
+                        }
                     }
                     LimuCard(padding: 0) {
-                        actionRow(icon: "pencil", title: "Edit Profile") { screen = .edit }
+                        actionRow(icon: "pencil", title: "Edit Client Profile", action: openProfileEditor)
                         actionRow(icon: "lock", title: "Change Password") { screen = .password }
                         actionRow(icon: "hand.raised", title: "Privacy Policy", external: true) { openURL(LimuLinks.privacyPolicy) }
                         actionRow(icon: "rectangle.portrait.and.arrow.right", title: "Sign Out", danger: true, action: onLogout)
@@ -123,8 +140,19 @@ struct ProfileView: View {
 
     private func openKYCIfRequested() {
         guard shouldOpenKYC else { return }
-        screen = .kyc
+        openProfileEditor()
         shouldOpenKYC = false
+    }
+
+    private func openProfileEditor() {
+        kycStep = 0
+        kycCompleted = false
+        screen = .clientProfile
+    }
+
+    private func displayValue(_ value: String?) -> String {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "—" }
+        return value
     }
 
     private func statCard(icon: String, value: String, label: String) -> some View {
@@ -155,7 +183,7 @@ struct ProfileView: View {
     }
 }
 
-private struct KYCView: View {
+private struct ClientProfileEditor: View {
     @EnvironmentObject private var appState: AppState
     @Binding var step: Int
     @Binding var completed: Bool
@@ -173,9 +201,8 @@ private struct KYCView: View {
     }
 
     private var steps: [KYCStep] {
-        isBusinessAccount
-            ? [.personal, .business, .categories, .consent]
-            : [.personal, .categories, .consent]
+        let profileSteps: [KYCStep] = isBusinessAccount ? [.personal, .business, .categories] : [.personal, .categories]
+        return appState.hasCompletedKYC ? profileSteps : profileSteps + [.consent]
     }
 
     private var currentStep: KYCStep {
@@ -194,8 +221,14 @@ private struct KYCView: View {
     @State private var dateOfBirth = LimuDateFormatting.defaultDateOfBirth
     @State private var businessName = "Addo Trading Ltd"
     @State private var category = ""
-    @State private var businessSize = "1–5 employees"
-    @State private var businessDescription = ""
+    @State private var businessSize = ""
+    @State private var businessOffering = ""
+    @State private var notes = ""
+    @State private var occupations = ""
+    @State private var interests = ""
+    @State private var serviceCategories = ""
+    @State private var idType = ""
+    @State private var idNumber = ""
     @State private var tradeIntent = ""
     @State private var selectedCategories: Set<String> = []
     @State private var acceptedTerms = false
@@ -215,7 +248,7 @@ private struct KYCView: View {
                 Label("Profile", systemImage: "chevron.left").font(.limu(size: 13, weight: .medium)).foregroundStyle(LimuColors.copper)
             }.buttonStyle(.plain).padding(.bottom, 8)
             HStack {
-                Text("KYC Details").font(.limu(size: 17, weight: .bold))
+                Text("Client Profile").font(.limu(size: 17, weight: .bold))
                 Spacer()
                 Text("\(appState.clientType) account")
                     .font(.limu(size: 10, weight: .bold))
@@ -252,7 +285,8 @@ private struct KYCView: View {
                                     .frame(maxWidth: .infinity).frame(height: 46).background(Color(hex: "F5EEE6")).clipShape(RoundedRectangle(cornerRadius: 12)).buttonStyle(.plain)
                             }
                             PrimaryButton(
-                                title: isLastStep ? "Complete KYC" : "Continue",
+                                title: appState.isBusy ? "Saving…" : isLastStep ? (appState.hasCompletedKYC ? "Save Profile" : "Complete Profile") : "Continue",
+                                loading: appState.isBusy,
                                 disabled: isCurrentStepIncomplete
                             ) {
                                 Task { await advance() }
@@ -279,10 +313,11 @@ private struct KYCView: View {
     }
 
     private func advance() async {
-        let success = await appState.saveKYC(payload, submit: isLastStep)
+        let submitting = isLastStep
+        let success = await appState.saveKYC(payload, submit: submitting)
         if success {
-            if isLastStep { completed = true } else { step += 1 }
-        } else if isLastStep && appState.lastErrorCode == "EMAIL_VERIFICATION_REQUIRED" {
+            if submitting { completed = true } else { step += 1 }
+        } else if submitting && appState.lastErrorCode == "EMAIL_VERIFICATION_REQUIRED" {
             appState.clearError()
             showingEmailVerification = true
         }
@@ -298,15 +333,22 @@ private struct KYCView: View {
             DatePickerField(label: "Date of Birth", date: $dateOfBirth, range: LimuDateFormatting.dateOfBirthRange)
             CountryPhoneField(label: "Phone Number", text: $phone)
             DistrictPickerField(label: "District", selection: $location)
+            LimuTextField(label: "Occupations (comma-separated)", text: $occupations)
+            LimuTextField(label: "Interests (comma-separated)", text: $interests)
+            menuField(label: "Identification Type", value: $idType, options: ["National ID", "Passport", "Driving Licence", "Other"])
+            LimuTextField(label: "Identification Number", text: $idNumber)
+            VStack(alignment: .leading, spacing: 6) {
+                fieldLabel("Notes")
+                TextEditor(text: $notes).frame(height: 92).padding(8).scrollContentBackground(.hidden).background(LimuColors.white).clipShape(RoundedRectangle(cornerRadius: 10)).overlay { RoundedRectangle(cornerRadius: 10).stroke(LimuColors.charcoal.opacity(0.15), lineWidth: 1.5) }
+            }
         case .business:
             LimuTextField(label: "Business Name", text: $businessName)
             BusinessCategoryPickerField(label: "Business Category", selection: $category)
-            VStack(alignment: .leading, spacing: 6) {
-                fieldLabel("Business Description")
-                TextEditor(text: $businessDescription).frame(height: 92).padding(8).scrollContentBackground(.hidden).background(LimuColors.white).clipShape(RoundedRectangle(cornerRadius: 10)).overlay { RoundedRectangle(cornerRadius: 10).stroke(LimuColors.charcoal.opacity(0.15), lineWidth: 1.5) }
-            }
+            menuField(label: "Business Size", value: $businessSize, options: ["Small (1-10 employees)", "Medium (11-20 employees)", "Large (21+ employees)"])
+            menuField(label: "Business Offering", value: $businessOffering, options: ["Goods", "Services", "Both"])
         case .categories:
             CategorySelectionView(tradeIntent: $tradeIntent, selection: $selectedCategories)
+            LimuTextField(label: "Service Categories (comma-separated)", text: $serviceCategories)
         case .consent:
             VStack(spacing: 14) {
                 LimuCard {
@@ -340,7 +382,10 @@ private struct KYCView: View {
         case .consent:
             !acceptedTerms
         case .personal:
-            !PhoneCountries.isValidPhone(phone)
+            firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !PhoneCountries.isValidPhone(phone)
         }
     }
 
@@ -356,12 +401,14 @@ private struct KYCView: View {
             "businessName": isBusinessAccount ? businessName : "",
             "businessCategory": isBusinessAccount ? category : "",
             "businessSize": isBusinessAccount ? businessSize : "",
-            "businessOffering": isBusinessAccount ? businessDescription : "",
+            "businessOffering": isBusinessAccount ? businessOffering : "",
             "tradeIntent": tradeIntent,
             "goodsCategories": Array(selectedCategories).sorted(),
-            "serviceCategories": [], "occupations": [], "interests": [], "location": location,
+            "serviceCategories": listValues(serviceCategories), "occupations": listValues(occupations),
+            "interests": listValues(interests), "location": location,
+            "idType": idType, "idNumber": idNumber,
             "dateOfBirth": LimuDateFormatting.apiDate(from: dateOfBirth),
-            "notes": "", "termsAccepted": acceptedTerms
+            "notes": notes, "termsAccepted": appState.hasCompletedKYC || acceptedTerms
         ]
     }
 
@@ -373,15 +420,27 @@ private struct KYCView: View {
             phone = profile.phone; location = profile.location; gender = profile.gender ?? gender
             setDateOfBirth(profile.dateOfBirth); businessName = profile.businessName
             category = profile.businessCategory
+            businessSize = profile.businessSize ?? ""; businessOffering = profile.businessOffering ?? ""
+            tradeIntent = profile.tradeIntent ?? ""; selectedCategories = Set(profile.goodsCategories ?? [])
+            serviceCategories = (profile.serviceCategories ?? []).joined(separator: ", ")
+            occupations = (profile.occupations ?? []).joined(separator: ", ")
+            interests = (profile.interests ?? []).joined(separator: ", ")
+            idType = profile.idType ?? ""; idNumber = profile.idNumber ?? ""; notes = profile.kycNotes ?? ""
         }
         guard let record = try? await appState.loadKYC(), let value = record.submission else { return }
         firstName = value.firstName; lastName = value.lastName; email = value.email; phone = value.phone
         location = value.location; gender = value.gender; setDateOfBirth(value.dateOfBirth)
         businessName = value.businessName; category = value.businessCategory; businessSize = value.businessSize
-        businessDescription = value.businessOffering; tradeIntent = value.tradeIntent ?? ""
+        businessOffering = value.businessOffering; tradeIntent = value.tradeIntent ?? ""
+        serviceCategories = value.serviceCategories.joined(separator: ", ")
+        occupations = value.occupations.joined(separator: ", "); interests = value.interests.joined(separator: ", ")
+        idType = value.idType ?? ""; idNumber = value.idNumber ?? ""; notes = value.notes
         selectedCategories = Set(value.goodsCategories)
         acceptedTerms = value.termsAccepted
-        completed = record.status.caseInsensitiveCompare("Completed") == .orderedSame
+    }
+
+    private func listValues(_ value: String) -> [String] {
+        value.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
     private func setDateOfBirth(_ value: String?) {
@@ -400,7 +459,7 @@ private struct KYCView: View {
                 ForEach(options, id: \.self) { option in Button(option) { value.wrappedValue = option } }
             } label: {
                 HStack {
-                    Text(value.wrappedValue).font(.limu(size: 14)).foregroundStyle(LimuColors.ink)
+                    Text(value.wrappedValue.isEmpty ? "Select" : value.wrappedValue).font(.limu(size: 14)).foregroundStyle(LimuColors.ink)
                     Spacer()
                     Image(systemName: "chevron.down").font(.limu(size: 12, weight: .semibold)).foregroundStyle(LimuColors.muted)
                 }
@@ -417,11 +476,11 @@ private struct KYCView: View {
             }
             VStack(spacing: 16) {
                 Image(systemName: "checkmark.circle.fill").font(.limu(size: 66)).foregroundStyle(LimuColors.success)
-                Text("KYC Complete").font(.limu(size: 20, weight: .heavy)).foregroundStyle(LimuColors.ink)
+                Text("Client Profile Saved").font(.limu(size: 20, weight: .heavy)).foregroundStyle(LimuColors.ink)
                 Text("Your details have been saved. Cargo and Shipments are available immediately.")
                     .font(.limu(size: 14)).foregroundStyle(LimuColors.secondary).multilineTextAlignment(.center).lineSpacing(4)
                 StatusBadge(status: "Completed", medium: true)
-                Button("Edit KYC Details") {
+                Button("Edit Client Profile") {
                     step = 0
                     completed = false
                 }
@@ -644,50 +703,6 @@ private struct CategorySelectionView: View {
             loadError = "Categories could not be loaded."
             isLoading = false
         }
-    }
-}
-
-private struct EditProfileView: View {
-    @EnvironmentObject private var appState: AppState
-    let onBack: () -> Void
-    @State private var firstName: String
-    @State private var lastName: String
-    @State private var phone: String
-    @State private var location: String
-    @State private var business: String
-    @State private var saved = false
-
-    init(profile: ProfileDTO?, onBack: @escaping () -> Void) {
-        self.onBack = onBack
-        _firstName = State(initialValue: profile?.firstName ?? "")
-        _lastName = State(initialValue: profile?.lastName ?? "")
-        _phone = State(initialValue: profile?.phone ?? "")
-        _location = State(initialValue: profile?.location ?? "")
-        _business = State(initialValue: profile?.businessName ?? "")
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            BackHeader(backTitle: "Profile", title: "Edit Profile", onBack: onBack)
-            ScrollView {
-                VStack(spacing: 14) {
-                    LimuTextField(label: "First Name", text: $firstName)
-                    LimuTextField(label: "Last Name", text: $lastName)
-                    CountryPhoneField(label: "Phone Number", text: $phone)
-                    DistrictPickerField(label: "District", selection: $location)
-                    LimuTextField(label: "Business Name", text: $business)
-                    PrimaryButton(
-                        title: appState.isBusy ? "Saving…" : saved ? "Changes Saved" : "Save Changes",
-                        loading: appState.isBusy,
-                        disabled: !PhoneCountries.isValidPhone(phone)
-                    ) {
-                        Task {
-                            saved = await appState.updateProfile(["firstName": firstName, "lastName": lastName, "phone": phone, "location": location, "businessName": business])
-                        }
-                    }
-                }.padding(20)
-            }
-        }.background(LimuColors.cream)
     }
 }
 

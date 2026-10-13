@@ -158,6 +158,14 @@ struct ProfileDTO: Codable {
     let interests: [String]?
     let alternatePhones: [String]?
     let kycStatus: String?
+    let businessSize: String?
+    let businessOffering: String?
+    let tradeIntent: String?
+    let goodsCategories: [String]?
+    let serviceCategories: [String]?
+    let idType: String?
+    let idNumber: String?
+    let kycNotes: String?
 }
 
 struct DashboardDTO: Decodable {
@@ -763,6 +771,8 @@ struct KYCSubmissionDTO: Codable {
     let location: String
     let dateOfBirth: String?
     let notes: String
+    let idType: String?
+    let idNumber: String?
     let termsAccepted: Bool
     let updatedAt: String?
 }

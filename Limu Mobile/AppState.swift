@@ -677,6 +677,9 @@ final class AppState: ObservableObject {
             if submit { demoKYCCompleted = true }
             return true
         }
+        if !submit && hasCompletedKYC {
+            return await updateProfile(values)
+        }
         return await runBusy {
             let _: KYCRecordDTO
             if submit {
