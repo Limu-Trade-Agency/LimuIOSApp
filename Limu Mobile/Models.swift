@@ -83,6 +83,10 @@ struct CargoPackage: Identifiable, Hashable {
     let checkedAt: String
     let total: Int
     let checked: Int
+    var imageURL: URL? = nil
+
+    /// Every unit of the package has been checked at the warehouse.
+    var isChecked: Bool { total > 0 && checked >= total }
 }
 
 struct TimelineEvent: Identifiable, Hashable {
@@ -345,6 +349,8 @@ struct Invoice: Identifiable, Hashable {
     let items: [InvoiceItem]
     let payments: [Payment]
     let documentURL: URL?
+    /// Set when the invoice was generated from an approved order form.
+    let orderFormNumber: String?
 
     init(
         apiID: Int = 0,
@@ -360,7 +366,8 @@ struct Invoice: Identifiable, Hashable {
         currency: String = LimuCurrency.defaultCode,
         items: [InvoiceItem],
         payments: [Payment],
-        documentURL: URL? = nil
+        documentURL: URL? = nil,
+        orderFormNumber: String? = nil
     ) {
         self.apiID = apiID
         self.id = id
@@ -376,6 +383,7 @@ struct Invoice: Identifiable, Hashable {
         self.items = items
         self.payments = payments
         self.documentURL = documentURL
+        self.orderFormNumber = orderFormNumber
     }
 }
 

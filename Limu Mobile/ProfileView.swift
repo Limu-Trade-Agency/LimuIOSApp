@@ -3,21 +3,24 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.openURL) private var openURL
-    private enum Screen { case profile, kyc, edit, password, deleteAccount }
+    private enum Screen { case profile, kyc, edit, password, notifications, deleteAccount }
 
     @Binding var shouldOpenKYC: Bool
     @State private var screen: Screen = .profile
-    @State private var kycStep = 0
-    @State private var kycCompleted = false
     let onLogout: () -> Void
+
+    private var isBusinessAccount: Bool {
+        appState.clientType.caseInsensitiveCompare("Business") == .orderedSame
+    }
 
     var body: some View {
         Group {
             switch screen {
             case .profile: profile
-            case .kyc: KYCView(step: $kycStep, completed: $kycCompleted) { screen = .profile }
-            case .edit: EditProfileView(profile: appState.profile) { screen = .profile }
+            case .kyc: KYCView { screen = .profile }
+            case .edit: EditProfileView(onBack: { screen = .profile }, onOpenKYC: { screen = .kyc })
             case .password: ChangePasswordView { screen = .profile }
+            case .notifications: NotificationSettingsView { screen = .profile }
             case .deleteAccount:
                 DeleteAccountView(onBack: { screen = .profile }, onDeleted: onLogout)
             }
@@ -27,6 +30,20 @@ struct ProfileView: View {
         .onChange(of: shouldOpenKYC) { _, requested in
             if requested { openKYCIfRequested() }
         }
+    }
+
+    private func display(_ value: String?) -> String {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "—" }
+        return value
+    }
+
+    private var phoneText: String {
+        let raw = appState.profile?.phone ?? ""
+        return raw.isEmpty ? "—" : PhoneCountries.normalizedPhone(raw)
+    }
+
+    private func list(_ values: [String]?) -> String {
+        display((values ?? []).joined(separator: ", "))
     }
 
     private var profile: some View {
@@ -41,25 +58,40 @@ struct ProfileView: View {
                         }
                     }
                     SectionCard("Personal Details") {
-                        DetailRow(label: "Full Name", value: appState.profile?.fullName ?? "—")
-                        DetailRow(label: "Phone", value: appState.profile?.phone ?? "—")
-                        DetailRow(label: "Email", value: appState.profile?.email ?? "—")
-                        DetailRow(label: "District", value: appState.profile?.location ?? "—")
+                        DetailRow(label: "Full Name", value: display(appState.profile?.fullName))
+                        DetailRow(label: "Phone", value: phoneText)
+                        DetailRow(label: "Email", value: display(appState.profile?.email))
+                        DetailRow(label: "Gender", value: display(appState.profile?.gender))
+                        DetailRow(label: "District", value: display(appState.profile?.location))
                     }
-                    SectionCard("Business Details") {
-                        DetailRow(label: "Business Name", value: appState.profile?.businessName ?? "—")
-                        DetailRow(label: "Category", value: appState.profile?.businessCategory ?? "—")
-                        DetailRow(label: "Account Type", value: appState.profile?.clientType ?? "—")
+                    if isBusinessAccount {
+                        SectionCard("Business Details") {
+                            DetailRow(label: "Business Name", value: display(appState.profile?.businessName))
+                            DetailRow(label: "Category", value: display(appState.profile?.businessCategory))
+                            DetailRow(label: "Size", value: display(appState.profile?.businessSize))
+                            DetailRow(label: "Sells", value: display(appState.profile?.businessOffering))
+                            DetailRow(label: "Account Type", value: display(appState.profile?.clientType))
+                        }
+                    }
+                    SectionCard("Trade") {
+                        DetailRow(label: "Import / Export", value: display(appState.profile?.tradeIntent))
+                        DetailRow(label: "Goods", value: list(appState.profile?.goodsCategories))
+                        if isBusinessAccount {
+                            DetailRow(label: "Services", value: list(appState.profile?.serviceCategories))
+                        } else {
+                            DetailRow(label: "Occupation", value: list(appState.profile?.occupations))
+                            DetailRow(label: "Interests", value: list(appState.profile?.interests))
+                        }
                     }
                     SectionCard("KYC Details") {
                         HStack {
                             Text("Status").font(.limu(size: 13)).foregroundStyle(Color(hex: "374151"))
                             Spacer()
-                            StatusBadge(status: appState.hasCompletedKYC || kycCompleted ? "Completed" : "Incomplete", medium: true)
+                            StatusBadge(status: appState.hasCompletedKYC ? "Completed" : "Incomplete", medium: true)
                         }
                         .padding(.bottom, 10)
                         .overlay(alignment: .bottom) { Rectangle().fill(LimuColors.softCream).frame(height: 1) }
-                        Button(appState.hasCompletedKYC || kycCompleted ? "View KYC Details" : "Complete KYC") { screen = .kyc }
+                        Button(appState.hasCompletedKYC ? "View KYC Details" : "Complete KYC") { screen = .kyc }
                             .font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.copper)
                             .frame(maxWidth: .infinity).frame(height: 42)
                             .background(LimuColors.copperWash).clipShape(RoundedRectangle(cornerRadius: 10))
@@ -69,6 +101,7 @@ struct ProfileView: View {
                     LimuCard(padding: 0) {
                         actionRow(icon: "pencil", title: "Edit Profile") { screen = .edit }
                         actionRow(icon: "lock", title: "Change Password") { screen = .password }
+                        actionRow(icon: "bell", title: "Notification Settings") { screen = .notifications }
                         actionRow(icon: "hand.raised", title: "Privacy Policy", external: true) { openURL(LimuLinks.privacyPolicy) }
                         actionRow(icon: "rectangle.portrait.and.arrow.right", title: "Sign Out", danger: true, action: onLogout)
                         actionRow(icon: "trash", title: "Delete Account", danger: true) { screen = .deleteAccount }
@@ -151,503 +184,48 @@ struct ProfileView: View {
     }
 }
 
-private struct KYCView: View {
-    @EnvironmentObject private var appState: AppState
-    @Binding var step: Int
-    @Binding var completed: Bool
-    let onBack: () -> Void
-
-    private enum KYCStep: String {
-        case personal = "Personal"
-        case business = "Business"
-        case categories = "Categories"
-        case consent = "Consent"
-    }
-
-    private var isBusinessAccount: Bool {
-        appState.clientType.caseInsensitiveCompare("Business") == .orderedSame
-    }
-
-    private var steps: [KYCStep] {
-        isBusinessAccount
-            ? [.personal, .business, .categories, .consent]
-            : [.personal, .categories, .consent]
-    }
-
-    private var currentStep: KYCStep {
-        steps[min(step, steps.count - 1)]
-    }
-
-    private var isLastStep: Bool { step == steps.count - 1 }
-
-    @State private var firstName = "Thandiwe"
-    @State private var lastName = "Banda"
-    @State private var email = "thandiwe.banda@example.com"
-    @State private var phone = "+265 888 000 000"
-    @State private var location = "Lilongwe"
-    @State private var gender = "Male"
-    @State private var dateOfBirth = LimuDateFormatting.defaultDateOfBirth
-    @State private var businessName = "Addo Trading Ltd"
-    @State private var category = ""
-    @State private var businessSize = "1–5 employees"
-    @State private var businessDescription = ""
-    @State private var tradeIntent = ""
-    @State private var selectedCategories: Set<String> = []
-    @State private var acceptedTerms = false
-    @State private var loaded = false
-
-    var body: some View {
-        Group { if completed { completedView } else { form } }
-            .task { await loadExistingKYC() }
-            .onChange(of: appState.clientType) { _, _ in
-                step = min(step, steps.count - 1)
-            }
-    }
-
-    private var header: some View {
-        AppHeader {
-            Button(action: onBack) {
-                Label("Profile", systemImage: "chevron.left").font(.limu(size: 13, weight: .medium)).foregroundStyle(LimuColors.peach)
-            }.buttonStyle(.plain).padding(.bottom, 8)
-            HStack {
-                Text("KYC Details").font(.limu(size: 17, weight: .bold))
-                Spacer()
-                Text("\(appState.clientType) account")
-                    .font(.limu(size: 10, weight: .bold))
-                    .foregroundStyle(LimuColors.peach)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(LimuColors.copper.opacity(0.24))
-                    .clipShape(Capsule())
-                    .overlay { Capsule().stroke(LimuColors.copper.opacity(0.5)) }
-            }
-            .padding(.bottom, 12)
-            HStack(spacing: 4) {
-                ForEach(steps.indices, id: \.self) { index in
-                    Capsule().fill(index <= step ? LimuColors.copper : LimuColors.peach.opacity(0.3)).frame(height: 4)
-                }
-            }
-            Text("Step \(step + 1) of \(steps.count): \(currentStep.rawValue)")
-                .font(.limu(size: 11)).foregroundStyle(LimuColors.peach).padding(.top, 6)
-        }
-    }
-
-    private var form: some View {
-        VStack(spacing: 0) {
-            header
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 14) {
-                        Color.clear.frame(height: 0).id("kyc-form-top")
-                        stepContent
-                        HStack(spacing: 10) {
-                            if step > 0 {
-                                Button("Back") { step -= 1 }
-                                    .font(.limu(size: 14, weight: .bold)).foregroundStyle(Color(hex: "482A28"))
-                                    .frame(maxWidth: .infinity).frame(height: 46).background(Color(hex: "F5EEE6")).clipShape(RoundedRectangle(cornerRadius: 12)).buttonStyle(.plain)
-                            }
-                            PrimaryButton(
-                                title: isLastStep ? "Complete KYC" : "Continue",
-                                disabled: isCurrentStepIncomplete
-                            ) {
-                                Task {
-                                    let success = await appState.saveKYC(payload, submit: isLastStep)
-                                    if success {
-                                        if isLastStep { completed = true } else { step += 1 }
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.top, 8)
-                    }
-                    .padding(20)
-                    .padding(.bottom, 150)
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .onChange(of: step) { _, _ in
-                    proxy.scrollTo("kyc-form-top", anchor: .top)
-                }
-            }
-        }
-        .background(LimuColors.cream)
-    }
-
-    @ViewBuilder private var stepContent: some View {
-        switch currentStep {
-        case .personal:
-            LimuTextField(label: "First Name", text: $firstName)
-            LimuTextField(label: "Last Name", text: $lastName)
-            LimuTextField(label: "Email", text: $email, keyboard: .emailAddress)
-            menuField(label: "Gender", value: $gender, options: ["Male", "Female", "Prefer not to say"])
-            DatePickerField(label: "Date of Birth", date: $dateOfBirth, range: LimuDateFormatting.dateOfBirthRange)
-            CountryPhoneField(label: "Phone Number", text: $phone)
-            DistrictPickerField(label: "District", selection: $location)
-        case .business:
-            LimuTextField(label: "Business Name", text: $businessName)
-            BusinessCategoryPickerField(label: "Business Category", selection: $category)
-            VStack(alignment: .leading, spacing: 6) {
-                fieldLabel("Business Description")
-                TextEditor(text: $businessDescription).frame(height: 92).padding(8).scrollContentBackground(.hidden).background(LimuColors.white).clipShape(RoundedRectangle(cornerRadius: 10)).overlay { RoundedRectangle(cornerRadius: 10).stroke(LimuColors.charcoal.opacity(0.15), lineWidth: 1.5) }
-            }
-        case .categories:
-            CategorySelectionView(tradeIntent: $tradeIntent, selection: $selectedCategories)
-        case .consent:
-            VStack(spacing: 14) {
-                LimuCard {
-                    Text("Terms & Conditions").font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.ink).padding(.bottom, 8)
-                    Text(consentCopy)
-                        .font(.limu(size: 12)).foregroundStyle(Color(hex: "374151")).lineSpacing(5)
-                }
-                HStack(spacing: 14) {
-                    Link("Read the full Terms & Conditions", destination: LimuLinks.terms)
-                    Link("Privacy Policy", destination: LimuLinks.privacyPolicy)
-                }
-                .font(.limu(size: 12, weight: .semibold))
-                .tint(LimuColors.copper)
-                Button { acceptedTerms.toggle() } label: {
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: acceptedTerms ? "checkmark.square.fill" : "square").font(.limu(size: 19)).foregroundStyle(acceptedTerms ? LimuColors.copper : LimuColors.muted)
-                        Text("I agree to the Terms & Conditions and Privacy Policy.").font(.limu(size: 13)).foregroundStyle(Color(hex: "374151")).multilineTextAlignment(.leading)
-                        Spacer()
-                    }
-                }.buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var isCurrentStepIncomplete: Bool {
-        switch currentStep {
-        case .business:
-            businessName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || category.isEmpty
-        case .categories:
-            tradeIntent.isEmpty || selectedCategories.isEmpty
-        case .consent:
-            !acceptedTerms
-        case .personal:
-            !PhoneCountries.isValidPhone(phone)
-        }
-    }
-
-    private var consentCopy: String {
-        let details = isBusinessAccount ? "personal and business details" : "personal details"
-        return "I confirm that all information provided is accurate and complete. I consent to Limu Logistics using my \(details) to provide cargo and shipment services. I understand that providing false information may result in account suspension."
-    }
-
-    private var payload: [String: Any] {
-        [
-            "firstName": firstName, "lastName": lastName, "email": email, "phone": phone,
-            "gender": gender, "clientType": appState.clientType,
-            "businessName": isBusinessAccount ? businessName : "",
-            "businessCategory": isBusinessAccount ? category : "",
-            "businessSize": isBusinessAccount ? businessSize : "",
-            "businessOffering": isBusinessAccount ? businessDescription : "",
-            "tradeIntent": tradeIntent,
-            "goodsCategories": Array(selectedCategories).sorted(),
-            "serviceCategories": [], "occupations": [], "interests": [], "location": location,
-            "dateOfBirth": LimuDateFormatting.apiDate(from: dateOfBirth),
-            "notes": "", "termsAccepted": acceptedTerms
-        ]
-    }
-
-    private func loadExistingKYC() async {
-        guard !loaded else { return }
-        loaded = true
-        if let profile = appState.profile {
-            firstName = profile.firstName; lastName = profile.lastName; email = profile.email
-            phone = profile.phone; location = profile.location; gender = profile.gender ?? gender
-            setDateOfBirth(profile.dateOfBirth); businessName = profile.businessName
-            category = profile.businessCategory
-        }
-        guard let record = try? await appState.loadKYC(), let value = record.submission else { return }
-        firstName = value.firstName; lastName = value.lastName; email = value.email; phone = value.phone
-        location = value.location; gender = value.gender; setDateOfBirth(value.dateOfBirth)
-        businessName = value.businessName; category = value.businessCategory; businessSize = value.businessSize
-        businessDescription = value.businessOffering; tradeIntent = value.tradeIntent ?? ""
-        selectedCategories = Set(value.goodsCategories)
-        acceptedTerms = value.termsAccepted
-        completed = record.status.caseInsensitiveCompare("Completed") == .orderedSame
-    }
-
-    private func setDateOfBirth(_ value: String?) {
-        guard let parsedDate = LimuDateFormatting.date(fromAPI: value) else { return }
-        dateOfBirth = LimuDateFormatting.clamped(parsedDate, to: LimuDateFormatting.dateOfBirthRange)
-    }
-
-    private func fieldLabel(_ title: String) -> some View {
-        Text(title.uppercased()).font(.limu(size: 12, weight: .semibold)).tracking(0.6).foregroundStyle(LimuColors.secondary)
-    }
-
-    private func menuField(label: String, value: Binding<String>, options: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            fieldLabel(label)
-            Menu {
-                ForEach(options, id: \.self) { option in Button(option) { value.wrappedValue = option } }
-            } label: {
-                HStack {
-                    Text(value.wrappedValue).font(.limu(size: 14)).foregroundStyle(LimuColors.ink)
-                    Spacer()
-                    Image(systemName: "chevron.down").font(.limu(size: 12, weight: .semibold)).foregroundStyle(LimuColors.muted)
-                }
-                .padding(.horizontal, 14).frame(height: 46).background(LimuColors.white).clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay { RoundedRectangle(cornerRadius: 10).stroke(LimuColors.charcoal.opacity(0.15), lineWidth: 1.5) }
-            }
-        }
-    }
-
-    private var completedView: some View {
-        VStack(spacing: 0) {
-            AppHeader {
-                Button(action: onBack) { Label("Profile", systemImage: "chevron.left").font(.limu(size: 13)).foregroundStyle(LimuColors.peach) }.buttonStyle(.plain)
-            }
-            VStack(spacing: 16) {
-                Image(systemName: "checkmark.circle.fill").font(.limu(size: 66)).foregroundStyle(LimuColors.success)
-                Text("KYC Complete").font(.limu(size: 20, weight: .heavy)).foregroundStyle(LimuColors.ink)
-                Text("Your details have been saved. Cargo and Shipments are available immediately.")
-                    .font(.limu(size: 14)).foregroundStyle(LimuColors.secondary).multilineTextAlignment(.center).lineSpacing(4)
-                StatusBadge(status: "Completed", medium: true)
-                Button("Edit KYC Details") {
-                    step = 0
-                    completed = false
-                }
-                .font(.limu(size: 14, weight: .bold))
-                .foregroundStyle(LimuColors.copper)
-                Button("Back to Profile", action: onBack).font(.limu(size: 15, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 32).padding(.vertical, 13).background(LimuColors.copper).clipShape(RoundedRectangle(cornerRadius: 12)).buttonStyle(.plain).padding(.top, 12)
-            }
-            .padding(32).frame(maxWidth: .infinity, maxHeight: .infinity)
-        }.background(LimuColors.cream)
-    }
-}
-
-private struct CategorySelectionView: View {
-    @EnvironmentObject private var appState: AppState
-    @Binding var tradeIntent: String
-    @Binding var selection: Set<String>
-    @State private var search = ""
-    @State private var categories: [CategoryDTO] = []
-    @State private var isLoading = false
-    @State private var loadError: String?
-
-    private let intents = [
-        ("Import", "arrow.down"),
-        ("Export", "arrow.up"),
-        ("Both", "arrow.left.arrow.right")
-    ]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("How do you plan to trade?")
-                    .font(.limu(size: 16, weight: .bold))
-                    .foregroundStyle(LimuColors.ink)
-                Text("Tell us whether you want to import, export, or do both.")
-                    .font(.limu(size: 12))
-                    .foregroundStyle(LimuColors.secondary)
-            }
-
-            HStack(spacing: 8) {
-                ForEach(intents, id: \.0) { intent in
-                    Button {
-                        tradeIntent = intent.0
-                    } label: {
-                        VStack(spacing: 6) {
-                            Image(systemName: intent.1)
-                                .font(.limu(size: 16, weight: .bold))
-                            Text(intent.0)
-                                .font(.limu(size: 12, weight: .bold))
-                        }
-                        .foregroundStyle(tradeIntent == intent.0 ? .white : LimuColors.ink)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 62)
-                        .background(tradeIntent == intent.0 ? LimuColors.copper : LimuColors.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(tradeIntent == intent.0 ? LimuColors.copper : LimuColors.charcoal.opacity(0.14), lineWidth: 1.5)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(intent.0) goods")
-                    .accessibilityAddTraits(tradeIntent == intent.0 ? .isSelected : [])
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("WHAT WOULD YOU LIKE TO MOVE?")
-                    .font(.limu(size: 12, weight: .semibold))
-                    .tracking(0.6)
-                    .foregroundStyle(LimuColors.secondary)
-                Text("Search and select all categories that interest you.")
-                    .font(.limu(size: 11))
-                    .foregroundStyle(LimuColors.muted)
-                HStack(spacing: 9) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(LimuColors.muted)
-                    TextField("Search categories", text: $search)
-                        .font(.limu(size: 14))
-                        .foregroundStyle(LimuColors.ink)
-                        .textInputAutocapitalization(.never)
-                        .submitLabel(.search)
-                    if !search.isEmpty {
-                        Button { search = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(LimuColors.muted)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Clear category search")
-                    }
-                }
-                .padding(.horizontal, 13)
-                .frame(height: 46)
-                .background(LimuColors.white)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(LimuColors.charcoal.opacity(0.15), lineWidth: 1.5)
-                }
-            }
-
-            if !selection.isEmpty {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("SELECTED · \(selection.count)")
-                        .font(.limu(size: 10, weight: .bold))
-                        .tracking(0.5)
-                        .foregroundStyle(LimuColors.secondary)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 7) {
-                            ForEach(selection.sorted(), id: \.self) { category in
-                                Button {
-                                    selection.remove(category)
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Text(category)
-                                        Image(systemName: "xmark")
-                                            .font(.limu(size: 9, weight: .bold))
-                                    }
-                                    .font(.limu(size: 11, weight: .semibold))
-                                    .foregroundStyle(LimuColors.copper)
-                                    .padding(.horizontal, 10)
-                                    .frame(height: 30)
-                                    .background(LimuColors.copperWash)
-                                    .clipShape(Capsule())
-                                    .overlay { Capsule().stroke(LimuColors.peach, lineWidth: 1) }
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("Remove \(category)")
-                            }
-                        }
-                    }
-                }
-            }
-
-            categoryResults
-        }
-        .task(id: search) { await loadCategories() }
-    }
-
-    @ViewBuilder private var categoryResults: some View {
-        LimuCard(padding: 0) {
-            if isLoading {
-                HStack(spacing: 10) {
-                    ProgressView().tint(LimuColors.copper)
-                    Text("Loading categories…")
-                        .font(.limu(size: 12))
-                        .foregroundStyle(LimuColors.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 72)
-            } else if let loadError {
-                VStack(spacing: 8) {
-                    Text(loadError)
-                        .font(.limu(size: 12))
-                        .foregroundStyle(LimuColors.secondary)
-                        .multilineTextAlignment(.center)
-                    Button("Try Again") { Task { await loadCategories(skipDelay: true) } }
-                        .font(.limu(size: 12, weight: .bold))
-                        .foregroundStyle(LimuColors.copper)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(16)
-            } else if categories.isEmpty {
-                VStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(LimuColors.muted)
-                    Text(search.isEmpty ? "No categories are available yet." : "No categories match ‘\(search)’." )
-                        .font(.limu(size: 12))
-                        .foregroundStyle(LimuColors.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(18)
-            } else {
-                ForEach(Array(categories.enumerated()), id: \.element.id) { index, category in
-                    Button {
-                        if selection.contains(category.name) {
-                            selection.remove(category.name)
-                        } else {
-                            selection.insert(category.name)
-                        }
-                    } label: {
-                        HStack(spacing: 11) {
-                            Image(systemName: selection.contains(category.name) ? "checkmark.circle.fill" : "circle")
-                                .font(.limu(size: 18, weight: .semibold))
-                                .foregroundStyle(selection.contains(category.name) ? LimuColors.copper : LimuColors.muted)
-                            Text(category.name)
-                                .font(.limu(size: 13, weight: .medium))
-                                .foregroundStyle(LimuColors.ink)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 14)
-                        .frame(height: 46)
-                        .overlay(alignment: .bottom) {
-                            if index < categories.count - 1 {
-                                Rectangle().fill(LimuColors.softCream).frame(height: 1)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selection.contains(category.name) ? .isSelected : [])
-                }
-            }
-        }
-    }
-
-    private func loadCategories(skipDelay: Bool = false) async {
-        isLoading = true
-        loadError = nil
-        if !skipDelay {
-            do { try await Task.sleep(nanoseconds: 250_000_000) }
-            catch { return }
-        }
-        guard !Task.isCancelled else { return }
-        do {
-            categories = try await appState.loadCategories(query: search)
-            isLoading = false
-        } catch {
-            guard !Task.isCancelled else { return }
-            categories = []
-            loadError = "Categories could not be loaded."
-            isLoading = false
-        }
-    }
-}
-
+/// Ordinary profile details only. Identity and business details are part of the verified KYC record:
+/// they are edited in the KYC flow and, once KYC is completed, changed only through a change request.
 private struct EditProfileView: View {
     @EnvironmentObject private var appState: AppState
     let onBack: () -> Void
-    @State private var firstName: String
-    @State private var lastName: String
-    @State private var phone: String
+    let onOpenKYC: () -> Void
+
     @State private var location: String
-    @State private var business: String
+    @State private var alternatePhone: String
+    @State private var tradeIntent: String
+    @State private var goods: [String]
+    @State private var services: [String]
+    @State private var occupation: String
+    @State private var interests: [String]
+    @State private var options = KYCOptionsCatalog.fallback
     @State private var saved = false
 
-    init(profile: ProfileDTO?, onBack: @escaping () -> Void) {
+    init(onBack: @escaping () -> Void, onOpenKYC: @escaping () -> Void) {
         self.onBack = onBack
-        _firstName = State(initialValue: profile?.firstName ?? "")
-        _lastName = State(initialValue: profile?.lastName ?? "")
-        _phone = State(initialValue: profile?.phone ?? "")
-        _location = State(initialValue: profile?.location ?? "")
-        _business = State(initialValue: profile?.businessName ?? "")
+        self.onOpenKYC = onOpenKYC
+        // The profile is read at first appearance in `onAppear`, because `appState` is not available in `init`.
+        _location = State(initialValue: "")
+        _alternatePhone = State(initialValue: "")
+        _tradeIntent = State(initialValue: "")
+        _goods = State(initialValue: [])
+        _services = State(initialValue: [])
+        _occupation = State(initialValue: "")
+        _interests = State(initialValue: [])
+    }
+
+    private var profile: ProfileDTO? { appState.profile }
+
+    private var isBusiness: Bool {
+        appState.clientType.caseInsensitiveCompare("Business") == .orderedSame
+    }
+
+    private var offering: String { profile?.businessOffering ?? "" }
+    private var showsGoods: Bool { !isBusiness || ["Goods", "Both"].contains(offering) }
+    private var showsServices: Bool { isBusiness && ["Services", "Both"].contains(offering) }
+
+    private var alternatePhoneIsValid: Bool {
+        alternatePhone.isEmpty || PhoneCountries.isValidPhone(alternatePhone)
     }
 
     var body: some View {
@@ -655,23 +233,115 @@ private struct EditProfileView: View {
             BackHeader(backTitle: "Profile", title: "Edit Profile", onBack: onBack)
             ScrollView {
                 VStack(spacing: 14) {
-                    LimuTextField(label: "First Name", text: $firstName)
-                    LimuTextField(label: "Last Name", text: $lastName)
-                    CountryPhoneField(label: "Phone Number", text: $phone)
+                    verifiedDetails
                     DistrictPickerField(label: "District", selection: $location)
-                    LimuTextField(label: "Business Name", text: $business)
+                    CountryPhoneField(label: "Alternate Phone (optional)", text: $alternatePhone)
+                    ChoiceTiles(
+                        label: "Import / Export",
+                        options: options.tradeIntents,
+                        icons: ["Import": "arrow.down", "Export": "arrow.up", "Both": "arrow.left.arrow.right"],
+                        selection: $tradeIntent
+                    )
+                    if showsGoods {
+                        MultiSelectField(
+                            label: isBusiness ? "Goods Categories" : "What would you like to move?",
+                            placeholder: "Select categories",
+                            options: options.goodsCategories,
+                            selection: $goods
+                        )
+                    }
+                    if showsServices {
+                        MultiSelectField(
+                            label: "Service Categories",
+                            placeholder: "Select categories",
+                            options: options.serviceCategories,
+                            selection: $services
+                        )
+                    }
+                    if !isBusiness {
+                        OptionPickerField(label: "Occupation", placeholder: "Select your occupation", options: options.occupations, selection: $occupation)
+                        MultiSelectField(
+                            label: "Interests",
+                            placeholder: "Select interests",
+                            options: options.interests,
+                            selection: $interests
+                        )
+                    }
                     PrimaryButton(
                         title: appState.isBusy ? "Saving…" : saved ? "Changes Saved" : "Save Changes",
                         loading: appState.isBusy,
-                        disabled: !PhoneCountries.isValidPhone(phone)
+                        disabled: !alternatePhoneIsValid || location.isEmpty
                     ) {
-                        Task {
-                            saved = await appState.updateProfile(["firstName": firstName, "lastName": lastName, "phone": phone, "location": location, "businessName": business])
-                        }
+                        Task { saved = await appState.updateProfile(payload) }
                     }
-                }.padding(20)
+                }
+                .padding(20)
+                .padding(.bottom, 60)
             }
-        }.background(LimuColors.cream)
+            .scrollDismissesKeyboard(.interactively)
+        }
+        .background(LimuColors.cream)
+        .onAppear(perform: loadFromProfile)
+        .task { options = await appState.loadKYCOptions() }
+        .onChange(of: location) { _, _ in saved = false }
+        .onChange(of: alternatePhone) { _, _ in saved = false }
+        .onChange(of: tradeIntent) { _, _ in saved = false }
+        .onChange(of: goods) { _, _ in saved = false }
+        .onChange(of: services) { _, _ in saved = false }
+        .onChange(of: occupation) { _, _ in saved = false }
+        .onChange(of: interests) { _, _ in saved = false }
+    }
+
+    private var verifiedDetails: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill").font(.limu(size: 12, weight: .bold)).foregroundStyle(LimuColors.copper)
+                Text("VERIFIED DETAILS").font(.limu(size: 11, weight: .bold)).tracking(0.7).foregroundStyle(LimuColors.muted)
+            }
+            DetailRow(label: "Name", value: profile?.fullName ?? "—")
+            DetailRow(label: "Phone", value: (profile?.phone).map { PhoneCountries.normalizedPhone($0) } ?? "—")
+            DetailRow(label: "Email", value: profile?.email ?? "—")
+            if isBusiness {
+                DetailRow(label: "Business", value: profile?.businessName ?? "—")
+            }
+            Text("Your name, business and contact details are part of your KYC record. Open KYC Details to update them or request a change.")
+                .font(.limu(size: 11)).foregroundStyle(LimuColors.muted).fixedSize(horizontal: false, vertical: true)
+            Button("Open KYC Details", action: onOpenKYC)
+                .font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.copper)
+                .buttonStyle(.plain)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(LimuColors.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: LimuColors.charcoal.opacity(0.06), radius: 5, y: 2)
+    }
+
+    private func loadFromProfile() {
+        guard let profile else { return }
+        location = profile.location
+        alternatePhone = profile.alternatePhones?.first.map { PhoneCountries.normalizedPhone($0) } ?? ""
+        tradeIntent = profile.tradeIntent ?? ""
+        goods = profile.goodsCategories ?? []
+        services = profile.serviceCategories ?? []
+        occupation = profile.occupations?.first ?? ""
+        interests = profile.interests ?? []
+        saved = false
+    }
+
+    private var payload: [String: Any] {
+        var values: [String: Any] = [
+            "location": location,
+            "alternatePhones": alternatePhone.isEmpty ? [] : [alternatePhone],
+            "tradeIntent": tradeIntent,
+            "goodsCategories": showsGoods ? goods : [],
+            "serviceCategories": showsServices ? services : []
+        ]
+        if !isBusiness {
+            values["occupations"] = occupation.isEmpty ? [] : [occupation]
+            values["interests"] = interests
+        }
+        return values
     }
 }
 

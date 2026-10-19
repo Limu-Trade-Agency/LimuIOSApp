@@ -1,10 +1,13 @@
 import SwiftUI
 
 struct AuthenticationView: View {
-    enum Mode { case signIn, register, verifyEmail, forgot, reset, resetPassword, claim }
+    enum Mode { case signIn, register, reactivate, verifyEmail, forgot, reset, resetPassword, claim }
 
     @State private var mode: Mode = .signIn
     @State private var registerStep = 0
+    @State private var checkingAccount = false
+    /// True while the verification screen belongs to a reactivation rather than a new registration.
+    @State private var reactivating = false
     @State private var keyboardVisible = false
     @State private var email = ""
     @State private var password = ""
@@ -77,7 +80,7 @@ struct AuthenticationView: View {
     var body: some View {
         VStack(spacing: 0) {
             if mode == .verifyEmail { verificationHeader }
-            else if [.forgot, .reset, .resetPassword, .claim].contains(mode) { forgotHeader }
+            else if [.forgot, .reset, .resetPassword, .claim, .reactivate].contains(mode) { forgotHeader }
             else if keyboardVisible { compactHeader }
             else { heroHeader }
             if mode == .signIn || mode == .register { authTabs }
@@ -86,6 +89,7 @@ struct AuthenticationView: View {
                     switch mode {
                     case .signIn: signInForm
                     case .register: registerForm
+                    case .reactivate: reactivateForm
                     case .verifyEmail: verificationForm
                     case .forgot: forgotForm
                     case .reset: resetCodeForm
@@ -148,6 +152,12 @@ struct AuthenticationView: View {
                     newPassword = ""
                     confirmNewPassword = ""
                     appState.clearError()
+                } else if mode == .reactivate {
+                    mode = .register
+                    registerStep = 1
+                    password = ""
+                    confirmPassword = ""
+                    appState.clearError()
                 } else {
                     returnToSignIn()
                 }
@@ -170,6 +180,7 @@ struct AuthenticationView: View {
     private var authHeaderTitle: String {
         switch mode {
         case .claim: return "Claim Account"
+        case .reactivate: return "Reactivate Account"
         case .reset: return "Enter Verification Code"
         case .resetPassword: return "Create New Password"
         default: return "Reset Password"
@@ -179,6 +190,7 @@ struct AuthenticationView: View {
     private var authHeaderSubtitle: String {
         switch mode {
         case .claim: return "Connect your existing Limu client record"
+        case .reactivate: return "Welcome back, we found your account"
         case .reset: return "Step 1 of 2: confirm it's you"
         case .resetPassword: return "Step 2 of 2: choose a new password"
         default: return "We'll send a verification code by email and WhatsApp"
@@ -188,7 +200,7 @@ struct AuthenticationView: View {
     private var verificationHeader: some View {
         AppHeader {
             Button {
-                mode = .register
+                mode = reactivating ? .reactivate : .register
                 registerStep = 2
                 verificationCode = ""
                 verificationResent = false
@@ -213,7 +225,7 @@ struct AuthenticationView: View {
     private var authTabs: some View {
         HStack(spacing: 0) {
             authTab("Sign In", selected: mode == .signIn) { mode = .signIn }
-            authTab("Register", selected: mode == .register) { mode = .register; registerStep = 0 }
+            authTab("Register", selected: mode == .register) { mode = .register; registerStep = 0; reactivating = false }
         }
         .background(LimuColors.white)
         .overlay(alignment: .bottom) { Rectangle().fill(LimuColors.charcoal.opacity(0.1)).frame(height: 1) }
@@ -354,9 +366,65 @@ struct AuthenticationView: View {
                         .buttonStyle(.plain)
                 }
                 if registerStep < registerStepTitles.count - 1 {
-                    PrimaryButton(title: "Continue", disabled: isRegisterStepIncomplete) { registerStep += 1 }
+                    PrimaryButton(title: checkingAccount ? "Checking…" : "Continue", loading: checkingAccount, disabled: isRegisterStepIncomplete || checkingAccount) { continueRegistration() }
                 } else {
                     PrimaryButton(title: appState.isBusy ? "Creating Account…" : "Create Account", loading: appState.isBusy, disabled: isRegisterStepIncomplete) { submitRegistration() }
+                }
+            }
+        }
+    }
+
+    /// After the contact step, find out whether this is a new account, an existing one, or a deactivated one
+    /// to reactivate, before asking for a password.
+    private func continueRegistration() {
+        guard registerStep == 1 else {
+            registerStep += 1
+            return
+        }
+        Task {
+            checkingAccount = true
+            let state = await appState.checkAccount(email: email, phone: phone)
+            checkingAccount = false
+            switch state {
+            case "deactivated":
+                password = ""
+                confirmPassword = ""
+                reactivating = true
+                mode = .reactivate
+            case "exists":
+                appState.errorMessage = "An account already exists for this email address or phone number. Sign in, or use Forgot password."
+            default:
+                registerStep += 1
+            }
+        }
+    }
+
+    private var reactivateForm: some View {
+        VStack(spacing: 16) {
+            Text("Welcome back! We found your deactivated Limu account. Choose a new password and we'll send a verification code to the number or email on file. Then confirm your details and your original account, with its shipment history, is back.")
+                .font(.limu(size: 13))
+                .foregroundStyle(LimuColors.secondary)
+                .lineSpacing(3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            LimuTextField(label: "New Password", placeholder: "Create a strong password", text: $password, secure: true)
+            passwordRequirements
+            LimuTextField(label: "Confirm Password", placeholder: "Repeat password", text: $confirmPassword, secure: true)
+            PrimaryButton(
+                title: appState.isBusy ? "Sending Code…" : "Send Verification Code",
+                loading: appState.isBusy,
+                disabled: password != confirmPassword || !isRegistrationPasswordValid
+            ) {
+                Task {
+                    guard let registration = await appState.reactivateAccount(email: email, phone: phone, password: password) else { return }
+                    let channel = (registration.channel ?? "email").lowercased()
+                    verificationChannel = channel == "sms" ? "sms" : "email"
+                    verificationEmail = registration.email
+                    verificationIdentifier = registration.identifier.flatMap { $0.isEmpty ? nil : $0 } ?? email
+                    verificationPhone = (registration.phone ?? "").isEmpty ? phone : (registration.phone ?? phone)
+                    verificationCode = ""
+                    verificationResent = false
+                    verificationEmailSent = verificationChannel == "sms" ? (registration.smsSent ?? true) : registration.emailSent
+                    mode = .verifyEmail
                 }
             }
         }
@@ -712,6 +780,7 @@ struct AuthenticationView: View {
     private func returnToSignIn() {
         mode = .signIn
         registerStep = 0
+        reactivating = false
         oneTimeToken = ""
         newPassword = ""
         confirmNewPassword = ""

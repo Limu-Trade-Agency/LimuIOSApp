@@ -5,16 +5,20 @@ struct ContentView: View {
     @State private var selectedTab: AppTab
     @State private var showingNotifications: Bool
     @State private var shouldOpenKYC = false
+    /// Cargo sits inside the Shipments tab; this says which of the two is showing.
+    @State private var shipmentsSegment: String
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         let args = ProcessInfo.processInfo.arguments
         _appState = StateObject(wrappedValue: AppState())
+        var initialTab = AppTab.home
         if let index = args.firstIndex(of: "--tab"), args.indices.contains(index + 1),
            let tab = Self.tab(from: args[index + 1]) {
-            _selectedTab = State(initialValue: tab)
-        } else {
-            _selectedTab = State(initialValue: .home)
+            initialTab = tab
         }
+        _selectedTab = State(initialValue: initialTab == .cargo ? .shipments : initialTab)
+        _shipmentsSegment = State(initialValue: initialTab == .cargo ? "Cargo" : "Shipments")
         _showingNotifications = State(initialValue: args.contains("--notifications"))
     }
 
@@ -34,7 +38,7 @@ struct ContentView: View {
         }
         .environmentObject(appState)
         .environment(\.font, .limu(size: 14))
-        .background(LimuColors.cream)
+        .background(LimuColors.cream.ignoresSafeArea())
         .tint(LimuColors.copper)
         .preferredColorScheme(.dark)
         .task { await appState.bootstrap() }
@@ -60,7 +64,18 @@ struct ContentView: View {
 
     private var mainApp: some View {
         Group {
-            if showingNotifications {
+            if appState.isReactivating {
+                // A reactivating account can do nothing until its fresh KYC is submitted: no tabs, no notifications.
+                KYCView(
+                    onBack: {
+                        Task {
+                            await appState.logout()
+                            await MainActor.run { selectedTab = .home }
+                        }
+                    },
+                    isReactivation: true
+                )
+            } else if showingNotifications {
                 NotificationsView(
                     notifications: $appState.notifications,
                     onBack: { showingNotifications = false },
@@ -76,14 +91,14 @@ struct ContentView: View {
                             onNotifications: { showingNotifications = true }
                         )
                     }
-                    Tab("Cargo", systemImage: AppTab.cargo.icon, value: AppTab.cargo) {
-                        CargoView()
-                    }
                     Tab("Shipments", systemImage: AppTab.shipments.icon, value: AppTab.shipments) {
-                        ShipmentsView()
+                        ShipmentsHubView(segment: $shipmentsSegment)
                     }
                     Tab("Order Forms", systemImage: AppTab.orderForms.icon, value: AppTab.orderForms) {
                         OrderFormsView()
+                    }
+                    Tab("Invoices", systemImage: AppTab.invoices.icon, value: AppTab.invoices) {
+                        InvoicesView()
                     }
                     Tab("Profile", systemImage: AppTab.profile.icon, value: AppTab.profile) {
                         ProfileView(shouldOpenKYC: $shouldOpenKYC) {
@@ -99,7 +114,25 @@ struct ContentView: View {
                 .tint(LimuColors.sunsetOrange)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.cream.ignoresSafeArea())
+        .task(id: appState.isReactivating) {
+            if appState.isReactivating { openKYC() }
+        }
+        // Visiting a tab, switching Shipments/Cargo, or coming back to the app reloads what is on screen.
+        .onChange(of: selectedTab) { _, tab in
+            Task { await appState.refresh(tab: tab) }
+        }
+        .onChange(of: shipmentsSegment) { _, _ in
+            Task { await appState.refresh(tab: .shipments) }
+        }
+        .onChange(of: showingNotifications) { _, showing in
+            if showing { Task { await appState.refreshNotifications() } }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, appState.isAuthenticated {
+                Task { await appState.refresh(tab: selectedTab) }
+            }
+        }
     }
 
     private var guardedTabSelection: Binding<AppTab> {
@@ -111,7 +144,12 @@ struct ContentView: View {
 
     private func navigate(_ tab: AppTab) {
         showingNotifications = false
-        selectedTab = tab
+        if tab == .cargo {
+            shipmentsSegment = "Cargo"
+            selectedTab = .shipments
+        } else {
+            selectedTab = tab
+        }
     }
 
     private func openKYC() {
@@ -141,8 +179,10 @@ struct ContentView: View {
             return .cargo
         case "shipment", "shipments":
             return .shipments
-        case "order", "order form", "order forms", "orderform", "orderforms", "invoice", "invoices", "payment":
+        case "order", "order form", "order forms", "orderform", "orderforms":
             return .orderForms
+        case "invoice", "invoices", "payment", "payments":
+            return .invoices
         case "profile", "kyc":
             return .profile
         case "home", "notifications":
@@ -162,7 +202,8 @@ struct ContentView: View {
         case "home": return .home
         case "cargo": return .cargo
         case "shipment", "shipments": return .shipments
-        case "order", "order form", "order forms", "orderform", "orderforms", "invoice", "invoices": return .orderForms
+        case "order", "order form", "order forms", "orderform", "orderforms": return .orderForms
+        case "invoice", "invoices": return .invoices
         case "profile": return .profile
         default: return nil
         }

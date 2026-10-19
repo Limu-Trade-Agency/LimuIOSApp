@@ -19,6 +19,11 @@ struct RegistrationPayloadDTO: Decodable {
     let smsSent: Bool?
 }
 
+/// Answer to "is this a new account, one that already exists, or a deactivated one?" ("new", "exists", "deactivated").
+struct AccountCheckDTO: Decodable {
+    let state: String
+}
+
 struct SessionDTO: Codable {
     let accessToken: String
     let refreshToken: String
@@ -48,6 +53,15 @@ struct ProfileDTO: Codable {
     let interests: [String]?
     let alternatePhones: [String]?
     let kycStatus: String?
+    let businessSize: String?
+    let businessOffering: String?
+    let tradeIntent: String?
+    let goodsCategories: [String]?
+    let serviceCategories: [String]?
+    /// True once KYC is completed: identity and business details can then only change through a change request.
+    let kycLocked: Bool?
+    /// "reactivating" while a previously deactivated account is waiting on a fresh KYC.
+    let accountStatus: String?
 }
 
 struct DashboardDTO: Decodable {
@@ -146,7 +160,8 @@ struct CargoPackageDTO: Decodable {
             courierTracking: courierTrackingNumber,
             checkedAt: checkedAt ?? "—",
             total: quantity,
-            checked: checked ? quantity : 0
+            checked: checked ? quantity : 0,
+            imageURL: imageUrl.flatMap(URL.init(string:))
         )
     }
 }
@@ -349,6 +364,7 @@ struct InvoiceDTO: Decodable {
     let cargoId: Int?
     let trackingNumber: String
     let documentUrl: String?
+    let orderFormNumber: String?
     let items: [InvoiceItemDTO]?
     let payments: [PaymentDTO]?
 
@@ -367,8 +383,9 @@ struct InvoiceDTO: Decodable {
             cargoID: trackingNumber.isEmpty ? cargoId.map { "CGO-\($0)" } ?? "—" : trackingNumber,
             currency: LimuCurrency.code(currency),
             items: (items ?? []).map(\.model),
-            payments: (payments ?? []).map(\.model),
-            documentURL: documentUrl.flatMap(URL.init(string:))
+            payments: (payments ?? []).map { $0.model(currency: LimuCurrency.code(currency)) },
+            documentURL: documentUrl.flatMap(URL.init(string:)),
+            orderFormNumber: orderFormNumber
         )
     }
 }
@@ -396,8 +413,11 @@ struct PaymentDTO: Decodable {
     let transactionId: String
     let notes: String?
 
-    var model: Payment {
-        Payment(id: String(id), amount: amount, status: status, date: paymentDate ?? "—", transactionID: transactionId, currency: LimuCurrency.code(currency))
+    var model: Payment { model(currency: LimuCurrency.code(currency)) }
+
+    /// Payments are shown in their invoice's currency (order-form invoices are not in the default currency).
+    func model(currency: String) -> Payment {
+        Payment(id: String(id), amount: amount, status: status, date: paymentDate ?? "—", transactionID: transactionId, currency: currency)
     }
 }
 
@@ -424,8 +444,10 @@ struct NotificationDTO: Decodable {
             tab = .cargo
         case "shipment", "shipments":
             tab = .shipments
-        case "order", "order form", "order forms", "orderform", "orderforms", "invoice", "invoices", "payment":
+        case "order", "order form", "order forms", "orderform", "orderforms":
             tab = .orderForms
+        case "invoice", "invoices", "payment", "payments":
+            tab = .invoices
         case "profile", "kyc":
             tab = .profile
         default:
@@ -439,11 +461,38 @@ struct KYCRecordDTO: Decodable {
     let status: String
     let submittedAt: String?
     let submission: KYCSubmissionDTO?
+    let locked: Bool?
+    let lockedFields: [String]?
+    let pendingChangeRequest: KYCChangeRequestDTO?
 }
 
-struct CategoryDTO: Decodable, Identifiable, Hashable {
+/// The accepted choices for every selectable KYC field, served by the API so the portal, the iOS
+/// app and the Android app always offer the same values.
+struct KYCOptionsDTO: Codable {
+    let genders: [String]
+    let tradeIntents: [String]
+    let businessOfferings: [String]
+    let businessSizes: [String]
+    let businessCategories: [String]
+    let goodsCategories: [String]
+    let serviceCategories: [String]
+    let interests: [String]
+    let occupations: [String]
+}
+
+struct KYCChangeRequestDTO: Decodable, Identifiable {
+    struct Change: Decodable {
+        let from: String
+        let to: String
+    }
+
     let id: Int
-    let name: String
+    let status: String
+    let reason: String
+    let changes: [String: Change]
+    let reviewNote: String?
+    let createdAt: String?
+    let reviewedAt: String?
 }
 
 struct KYCSubmissionDTO: Codable {

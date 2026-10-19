@@ -36,10 +36,10 @@ enum LimuColors {
 enum LimuLinks {
     /// Published privacy policy. The same URL is declared in App Store Connect —
     /// keep the two in sync, Apple rejects a listing whose policy link is dead.
-    static let privacyPolicy = URL(string: "https://portal.limu.co.mw/policy")!
+    static let privacyPolicy = URL(string: "https://limu.co.mw/policy")!
     /// Public terms and conditions page (required by TestFlight / App Store Connect).
-    /// Provided by LIMU at the website path `/terms`; confirm the final host before submission.
-    static let terms = URL(string: "https://portal.limu.co.mw/terms")!
+    /// Confirmed by LIMU on 19 Oct 2026 as limu.co.mw/terms; keep the App Store Connect field in sync.
+    static let terms = URL(string: "https://limu.co.mw/terms")!
 }
 
 extension Font {
@@ -84,6 +84,7 @@ enum AppTab: String, CaseIterable {
     case cargo = "Cargo"
     case shipments = "Shipments"
     case orderForms = "Order Forms"
+    case invoices = "Invoices"
     case profile = "Profile"
 
     var icon: String {
@@ -92,6 +93,7 @@ enum AppTab: String, CaseIterable {
         case .cargo: "shippingbox"
         case .shipments: "checklist"
         case .orderForms: "list.clipboard"
+        case .invoices: "doc.text"
         case .profile: "person"
         }
     }
@@ -117,6 +119,12 @@ enum LimuDateFormatting {
 
     static var dateOfBirthRange: ClosedRange<Date> {
         makeDate(year: 1900, month: 1, day: 1)...Date()
+    }
+
+    /// KYC applicants must be 18 or older.
+    static var adultDateOfBirthRange: ClosedRange<Date> {
+        let latest = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+        return makeDate(year: 1900, month: 1, day: 1)...latest
     }
 
     static func apiDate(from date: Date) -> String {
@@ -269,40 +277,6 @@ enum PhoneCountries {
         let country = detect(value) ?? defaultCountry
         return country.isValid(country.nationalDigits(from: value))
     }
-}
-
-struct BusinessCategoryOption: Identifiable, Hashable {
-    let code: String
-    let name: String
-    var id: String { code }
-}
-
-enum BusinessCategories {
-    // Mobile-friendly labels adapted from the 21 ISIC Rev. 4 sections published by UNSD.
-    static let all = [
-        BusinessCategoryOption(code: "A", name: "Agriculture, Forestry & Fishing"),
-        BusinessCategoryOption(code: "B", name: "Mining & Quarrying"),
-        BusinessCategoryOption(code: "C", name: "Manufacturing"),
-        BusinessCategoryOption(code: "D", name: "Electricity, Gas & Energy"),
-        BusinessCategoryOption(code: "E", name: "Water, Waste & Environmental Services"),
-        BusinessCategoryOption(code: "F", name: "Construction"),
-        BusinessCategoryOption(code: "G", name: "Wholesale, Retail & Motor Trade"),
-        BusinessCategoryOption(code: "H", name: "Transportation & Storage"),
-        BusinessCategoryOption(code: "I", name: "Accommodation & Food Services"),
-        BusinessCategoryOption(code: "J", name: "Information & Communication"),
-        BusinessCategoryOption(code: "K", name: "Financial & Insurance Services"),
-        BusinessCategoryOption(code: "L", name: "Real Estate"),
-        BusinessCategoryOption(code: "M", name: "Professional, Scientific & Technical Services"),
-        BusinessCategoryOption(code: "N", name: "Administrative & Support Services"),
-        BusinessCategoryOption(code: "O", name: "Public Administration & Social Security"),
-        BusinessCategoryOption(code: "P", name: "Education"),
-        BusinessCategoryOption(code: "Q", name: "Health & Social Work"),
-        BusinessCategoryOption(code: "R", name: "Arts, Entertainment & Recreation"),
-        BusinessCategoryOption(code: "S", name: "Other Services"),
-        BusinessCategoryOption(code: "T", name: "Household Employment & Own-use Production"),
-        BusinessCategoryOption(code: "U", name: "International Organizations"),
-        BusinessCategoryOption(code: "OTHER", name: "Other")
-    ]
 }
 
 struct LimuEmblemMark: View {
@@ -660,12 +634,18 @@ struct DatePickerField: View {
     let label: String
     @Binding var date: Date
     var range: ClosedRange<Date> = LimuDateFormatting.dateOfBirthRange
+    /// When provided, the field shows a placeholder until a date has been picked, so a default
+    /// date is never mistaken for an answer.
+    var isSet: Binding<Bool>?
+    var placeholder = "Select a date"
 
     @State private var draftDate = LimuDateFormatting.defaultDateOfBirth
     @State private var isPresented = false
 
+    private var hasValue: Bool { isSet?.wrappedValue ?? true }
+
     private var displayValue: String {
-        LimuDateFormatting.displayDate(date)
+        hasValue ? LimuDateFormatting.displayDate(date) : placeholder
     }
 
     var body: some View {
@@ -681,7 +661,7 @@ struct DatePickerField: View {
                 HStack(spacing: 10) {
                     Text(displayValue)
                         .font(.limu(size: 14))
-                        .foregroundStyle(LimuColors.ink)
+                        .foregroundStyle(hasValue ? LimuColors.ink : LimuColors.muted)
                     Spacer(minLength: 8)
                     Image(systemName: "calendar")
                         .font(.system(size: 14, weight: .semibold))
@@ -747,6 +727,7 @@ struct DatePickerField: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") {
                             date = LimuDateFormatting.clamped(draftDate, to: range)
+                            isSet?.wrappedValue = true
                             isPresented = false
                         }
                         .font(.limu(size: 14, weight: .semibold))
@@ -1117,123 +1098,6 @@ private struct MalawiDistrictPicker: View {
             .navigationTitle("Select District")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $search, prompt: "Search districts")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { isPresented = false }
-                }
-            }
-        }
-        .tint(LimuColors.copper)
-    }
-}
-
-struct BusinessCategoryPickerField: View {
-    let label: String
-    @Binding var selection: String
-    @State private var isPresented = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label.uppercased())
-                .font(.limu(size: 12, weight: .semibold))
-                .tracking(0.6)
-                .foregroundStyle(LimuColors.secondary)
-            Button { isPresented = true } label: {
-                HStack(spacing: 10) {
-                    Text(selection.isEmpty ? "Select a business category" : selection)
-                        .font(.limu(size: 14))
-                        .foregroundStyle(selection.isEmpty ? LimuColors.muted : LimuColors.ink)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(2)
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(LimuColors.muted)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .frame(minHeight: 46)
-                .background(LimuColors.white)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(LimuColors.charcoal.opacity(0.15), lineWidth: 1.5)
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(label)
-            .accessibilityValue(selection.isEmpty ? "No business category selected" : selection)
-        }
-        .sheet(isPresented: $isPresented) {
-            BusinessCategoryPicker(selection: $selection, isPresented: $isPresented)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .preferredColorScheme(.light)
-        }
-    }
-}
-
-private struct BusinessCategoryPicker: View {
-    @Binding var selection: String
-    @Binding var isPresented: Bool
-    @State private var search = ""
-
-    private var categories: [BusinessCategoryOption] {
-        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return BusinessCategories.all }
-        return BusinessCategories.all.filter {
-            $0.code.localizedCaseInsensitiveContains(query) || $0.name.localizedCaseInsensitiveContains(query)
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(categories) { category in
-                        Button {
-                            selection = category.name
-                            isPresented = false
-                        } label: {
-                            HStack(spacing: 12) {
-                                Text(category.code == "OTHER" ? "—" : category.code)
-                                    .font(.limu(size: 11, weight: .bold))
-                                    .foregroundStyle(LimuColors.copper)
-                                    .frame(width: 30, height: 30)
-                                    .background(LimuColors.copperWash)
-                                    .clipShape(Circle())
-                                Text(category.name)
-                                    .font(.limu(size: 14, weight: selection == category.name ? .semibold : .regular))
-                                    .foregroundStyle(LimuColors.ink)
-                                    .multilineTextAlignment(.leading)
-                                Spacer(minLength: 8)
-                                if selection == category.name {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(LimuColors.copper)
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 9)
-                            .frame(minHeight: 52)
-                            .background(selection == category.name ? LimuColors.copperWash : LimuColors.white)
-                            .overlay(alignment: .bottom) {
-                                Rectangle().fill(LimuColors.divider).frame(height: 1)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.vertical, 8)
-            }
-            .background(LimuColors.cream)
-            .navigationTitle("Business Category")
-            .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $search, prompt: "Search business categories")
-            .overlay {
-                if categories.isEmpty {
-                    ContentUnavailableView.search(text: search)
-                }
-            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isPresented = false }

@@ -23,6 +23,41 @@ Password show/hide toggle on all password fields; three-step registration; passw
 a code screen and a new-password screen; keyboard-safe auth layouts; Terms & Conditions link
 (`LimuLinks.terms`). Details and open items: [`docs/release/DEPLOYMENT-REVIEW-2026-10-09.md`](docs/release/DEPLOYMENT-REVIEW-2026-10-09.md).
 
+### Changes from the 14 Oct 2026 portal and mobile review
+
+**KYC and client record (portal + app)**
+- One agreed set of KYC fields across the portal form, the client view and both mobile apps. Completing
+  KYC now updates the client record itself (it used to update only the KYC status), so the portal client
+  view and the app profile always match. Personal and business accounts each show only their own fields.
+- Every selectable answer (business category, size, goods/service categories, interests, occupation,
+  gender, import/export) comes from a single shared list served by `kyc/options.php`; the app no longer
+  keeps its own lists or free-text values.
+- Staged KYC form with a draft saved at each step; date of birth must be chosen (no default), 18+.
+- Phone and email in KYC are the verified account values and are read-only (phone is shown in one
+  consistent format). Phone-verified clients can now complete KYC (previously only email-verified could).
+- After KYC is completed, identity and business details are locked. Clients file a **KYC change
+  request** from the app; staff approve it in the portal (Clients → KYC change requests).
+- Edit Profile is now only for ordinary details: district, alternate phone, trade preferences,
+  occupation and interests.
+
+**Deactivated accounts**
+- Registering again with a deactivated account's phone or email no longer fails or creates a duplicate. The original record is reactivated: the usual OTP is sent, the app then opens KYC, and the account only turns active once a fresh KYC is submitted (it updates the original record, and shipment history stays attached).
+- The Terms & Conditions link is now `https://limu.co.mw/terms`.
+
+**Invoices and tracking**
+- Approving an order form (in the app or on the portal client link) now generates its invoice automatically, billing only the items the client approved, in the order form's currency. It appears under Invoices with a notification.
+- Staff names are stripped from tracking text as well as the separate field, and shipment lines naming other clients' cargo are hidden.
+- Every visit to a tab (and returning to the app) reloads that tab's data, so portal edits show up without a manual refresh.
+
+**Navigation**
+- Cargo moved inside Shipments (Shipments | Cargo switch); the freed tab is **Invoices**, with payment
+  proof upload. Invoices are read-only for clients; edits stay on the internal side.
+
+**Cargo and tracking**
+- Staff names are no longer sent to, or shown in, customer-facing tracking updates.
+- Removed the fixed "stage progress" list (it always showed three of four stages done). Package detail
+  shows real warehouse-check status, one "units checked" figure, and the uploaded package photo.
+
 ### What is in this build
 
 **Account and access**
@@ -62,7 +97,7 @@ a code screen and a new-password screen; keyboard-safe auth layouts; Terms & Con
 
 **Profile**
 - View and edit profile details, and change password.
-- Privacy policy link (`https://portal.limu.co.mw/policy`), also linked from the delete-account screen.
+- Privacy policy link (`https://limu.co.mw/policy`), also linked from the delete-account screen.
 
 **Platform**
 - Native SwiftUI throughout, Poppins type, and the Limu palette (charcoal `#161A1C`,

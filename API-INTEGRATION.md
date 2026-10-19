@@ -13,7 +13,7 @@ The app still permits insecure HTTP only for `localhost`, so the XAMPP override 
 - Authentication: register, login, refresh, logout, forgot/reset password, account claim
 - Dashboard and client profile
 - Profile update and password change
-- KYC detail load, draft save, immediate completion, and database-backed category search
+- KYC detail load, draft save, completion (which now also writes the answers to the client record), shared option lists (`kyc/options.php`), and change requests for locked details (`kyc/change-requests.php`)
 - Cargo list/detail, package data, and cargo timeline
 - Shipment list/detail and updates
 - Invoice list/detail, document link, payment history, and payment-proof upload

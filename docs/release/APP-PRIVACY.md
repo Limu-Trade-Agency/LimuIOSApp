@@ -74,7 +74,7 @@ declaring no tracking in App Store Connect. These two must never disagree.
 
 ## Privacy policy
 
-**`https://portal.limu.co.mw/policy`**
+**`https://limu.co.mw/policy`**
 
 Declared in App Store Connect, and linked from inside the app in two places — a Privacy Policy row
 in Profile, and a link on the Delete Account screen. The constant lives in `LimuLinks.privacyPolicy`
@@ -99,7 +99,7 @@ it, and a 404 or a redirect to a sign-in wall stops the review. The page covers:
 That last pair matters more than it looks: the retention carve-out in the policy is what makes the
 in-app deletion flow defensible to a reviewer. If the policy is silent on it, the rejection arrives
 at the privacy step instead of the deletion step. Section 9 of the drafted page handles it and
-carries its own anchor — `https://portal.limu.co.mw/policy#delete-your-account` — which is also what Google
+carries its own anchor — `https://limu.co.mw/policy#delete-your-account` — which is also what Google
 Play wants as a separate data-deletion URL.
 
 ### Correction: sharing is not "nobody"

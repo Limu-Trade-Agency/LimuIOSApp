@@ -1,7 +1,23 @@
 import SwiftUI
 
+/// Shipments and cargo are two views of the same goods, so they share one tab with a switch at the top.
+let shipmentsHubSegments = ["Shipments", "Cargo"]
+
+struct ShipmentsHubView: View {
+    @Binding var segment: String
+
+    var body: some View {
+        if segment == "Cargo" {
+            CargoView(hubSegment: $segment)
+        } else {
+            ShipmentsView(hubSegment: $segment)
+        }
+    }
+}
+
 struct ShipmentsView: View {
     @EnvironmentObject private var appState: AppState
+    var hubSegment: Binding<String>?
     @State private var filter = "All"
     @State private var selectedShipment: Shipment?
     @State private var updates: [ShipmentUpdate] = []
@@ -31,6 +47,9 @@ struct ShipmentsView: View {
                         .font(.limu(size: 12))
                         .foregroundStyle(LimuColors.peach)
                         .padding(.top, 2)
+                }
+                if let hubSegment {
+                    SegmentedTabs(items: shipmentsHubSegments, selection: hubSegment)
                 }
                 FilterStrip(items: filters, selection: $filter)
                 ScrollView {
@@ -212,7 +231,7 @@ private struct ShipmentDetailView: View {
                                 StatusBadge(status: update.status)
                             }
                             Text(update.message).font(.limu(size: 12)).foregroundStyle(Color(hex: "4B5563")).lineSpacing(3)
-                            Label("\(update.timestamp) · \(update.actor)", systemImage: "clock")
+                            Label(update.timestamp, systemImage: "clock")
                                 .font(.limu(size: 11)).foregroundStyle(LimuColors.muted)
                         }
                     }

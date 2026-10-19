@@ -100,7 +100,7 @@ missing from the archive anyway.
 
 ### Privacy policy links
 
-`LimuLinks.privacyPolicy` (`Limu Mobile/DesignSystem.swift`) holds `https://portal.limu.co.mw/policy`, used
+`LimuLinks.privacyPolicy` (`Limu Mobile/DesignSystem.swift`) holds `https://limu.co.mw/policy`, used
 by a Privacy Policy row in Profile and a link on the delete screen. One constant, so the app and the
 App Store listing cannot drift apart.
 

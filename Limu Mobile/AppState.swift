@@ -53,6 +53,9 @@ final class AppState: ObservableObject {
             ?? (demoMode && demoKYCCompleted ? "Completed" : "Incomplete")
     }
 
+    /// A deactivated account that registered again: sign-in works, but only KYC until it is completed.
+    var isReactivating: Bool { profile?.accountStatus == "reactivating" }
+
     var hasCompletedKYC: Bool {
         Self.hasCompletedKYC(status: kycStatus)
     }
@@ -107,6 +110,31 @@ final class AppState: ObservableObject {
             ]
             if !businessName.isEmpty { body["businessName"] = businessName }
             registration = try await api.post("auth/register.php", body: body, authenticated: false)
+        }
+        return success ? registration : nil
+    }
+
+    /// Asked as soon as the person has typed their contact details, so a deactivated account goes
+    /// to reactivation instead of through the whole registration form. A failed check never blocks sign-up.
+    func checkAccount(email: String, phone: String) async -> String {
+        guard !demoMode else { return "new" }
+        let result: AccountCheckDTO? = try? await api.post(
+            "auth/check-account.php",
+            body: ["email": email, "phone": phone, "deviceId": deviceID],
+            authenticated: false
+        )
+        return result?.state ?? "new"
+    }
+
+    /// Starts reactivating a deactivated account: the usual verification code is sent, then a fresh KYC activates it.
+    func reactivateAccount(email: String, phone: String, password: String) async -> RegistrationPayloadDTO? {
+        var registration: RegistrationPayloadDTO?
+        let success = await runBusy {
+            registration = try await api.post(
+                "auth/reactivate.php",
+                body: ["email": email, "phone": phone, "password": password, "deviceId": deviceID],
+                authenticated: false
+            )
         }
         return success ? registration : nil
     }
@@ -272,12 +300,19 @@ final class AppState: ObservableObject {
         } catch {
             orderFormDTOs = dashboardDTO.orderForms ?? []
         }
+        // A failed invoice call keeps whatever the dashboard preview already carried.
+        var invoiceDTOs: [InvoiceDTO] = dashboardDTO.invoices ?? []
+        if let loaded: [InvoiceDTO] = try? await emptyIfKYCRequired({
+            try await api.get("invoices/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
+        }) {
+            invoiceDTOs = loaded
+        }
         let notificationDTOs: [NotificationDTO] = try await api.get("notifications/index.php", query: [URLQueryItem(name: "limit", value: "100")])
         dashboard = dashboardDTO
         profile = dashboardDTO.client
         cargo = cargoDTOs.map(\.model)
         shipments = shipmentDTOs.map(\.model)
-        invoices = []
+        invoices = invoiceDTOs.map(\.model)
         orderForms = orderFormDTOs.map(\.model)
         notifications = notificationDTOs.map(\.model)
         await hydrateOrderFormsFromNotifications()
@@ -304,6 +339,13 @@ final class AppState: ObservableObject {
         }
     }
 
+    func refreshInvoices() async {
+        guard liveSession else { return }
+        if let invoiceDTOs: [InvoiceDTO] = try? await api.get("invoices/index.php", query: [URLQueryItem(name: "perPage", value: "100")]) {
+            invoices = invoiceDTOs.map(\.model)
+        }
+    }
+
     func refreshOrderForms() async {
         guard liveSession else { return }
         if let orderFormDTOs: [OrderFormDTO] = try? await api.get("orderforms/index.php", query: [URLQueryItem(name: "perPage", value: "100")]) {
@@ -327,11 +369,26 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Portal edits are not pushed to the phone, so every visit to a tab pulls that tab's data again.
+    func refresh(tab: AppTab) async {
+        switch tab {
+        case .home: await refreshHome()
+        case .cargo: await refreshCargo()
+        case .shipments:
+            await refreshShipments()
+            await refreshCargo()
+        case .orderForms: await refreshOrderForms()
+        case .invoices: await refreshInvoices()
+        case .profile: await refreshDashboard()
+        }
+    }
+
     func refreshHome() async {
         guard liveSession else { return }
         await refreshDashboard()
         await refreshCargo()
         await refreshShipments()
+        await refreshInvoices()
         await refreshOrderForms()
         await refreshNotifications()
     }
@@ -497,6 +554,32 @@ final class AppState: ObservableObject {
         for index in notifications.indices { notifications[index].isUnread = false }
     }
 
+    // MARK: - Notification preferences
+
+    func loadNotificationPreferences() async -> NotificationPreferencesDTO? {
+        guard !demoMode else { return NotificationPreferencesDTO() }
+        return try? await api.get("notifications/preferences.php")
+    }
+
+    func saveNotificationPreferences(_ value: NotificationPreferencesDTO) async -> Bool {
+        guard !demoMode else { return true }
+        let body: [String: Any] = [
+            "channels": [
+                "push": value.channels.push,
+                "email": value.channels.email,
+                "whatsapp": value.channels.whatsapp
+            ],
+            "types": [
+                "shipments": value.types.shipments,
+                "orders": value.types.orders,
+                "invoices": value.types.invoices,
+                "general": value.types.general
+            ]
+        ]
+        let saved: NotificationPreferencesDTO? = try? await api.put("notifications/preferences.php", body: body)
+        return saved != nil
+    }
+
     func configurePushNotifications() {
         guard !demoMode else { return }
         Task { @MainActor in
@@ -567,23 +650,20 @@ final class AppState: ObservableObject {
 
     func loadKYC() async throws -> KYCRecordDTO { try await api.get("kyc/index.php") }
 
-    func loadCategories(query: String = "") async throws -> [CategoryDTO] {
-        if demoMode {
-            let categories = [
-                CategoryDTO(id: 3, name: "Assorted"),
-                CategoryDTO(id: 2, name: "Electronics"),
-                CategoryDTO(id: 1, name: "Spare parts")
-            ]
-            let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            return search.isEmpty ? categories : categories.filter { $0.name.localizedCaseInsensitiveContains(search) }
+    /// The shared KYC choices. Falls back to the bundled copy so the form still works offline.
+    func loadKYCOptions() async -> KYCOptionsDTO {
+        if demoMode { return KYCOptionsCatalog.fallback }
+        return (try? await api.get("kyc/options.php")) ?? KYCOptionsCatalog.fallback
+    }
+
+    /// Files a request to change locked KYC details (identity and business fields). Staff review it in the portal.
+    func requestKYCChange(_ changes: [String: Any], reason: String) async -> KYCChangeRequestDTO? {
+        if demoMode { return nil }
+        var request: KYCChangeRequestDTO?
+        let success = await runBusy {
+            request = try await api.post("kyc/change-requests.php", body: ["changes": changes, "reason": reason])
         }
-        return try await api.get(
-            "categories/get.php",
-            query: [
-                URLQueryItem(name: "q", value: query),
-                URLQueryItem(name: "limit", value: "500")
-            ]
-        )
+        return success ? request : nil
     }
 
     func saveKYC(_ values: [String: Any], submit: Bool) async -> Bool {

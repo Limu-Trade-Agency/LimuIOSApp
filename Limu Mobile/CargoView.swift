@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CargoView: View {
     @EnvironmentObject private var appState: AppState
+    var hubSegment: Binding<String>?
     private enum Screen { case list, detail, package }
 
     @State private var screen: Screen = .list
@@ -62,6 +63,9 @@ struct CargoView: View {
                 .frame(height: 40)
                 .background(.white.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            if let hubSegment {
+                SegmentedTabs(items: shipmentsHubSegments, selection: hubSegment)
             }
             FilterStrip(items: filters, selection: $filter)
             ScrollView {
@@ -246,7 +250,7 @@ private struct CargoDetailView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(event.title).font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.ink)
                             Text(event.description).font(.limu(size: 12)).foregroundStyle(LimuColors.secondary)
-                            Text("\(event.timestamp) · \(event.actor)").font(.limu(size: 11)).foregroundStyle(LimuColors.muted)
+                            Text(event.timestamp).font(.limu(size: 11)).foregroundStyle(LimuColors.muted)
                         }
                         Spacer()
                     }
@@ -276,7 +280,7 @@ private struct CargoDetailView: View {
                         }
                         .padding(.vertical, 10)
                         Text("CHECKED PROGRESS").font(.limu(size: 10, weight: .semibold)).foregroundStyle(LimuColors.muted)
-                        ProgressView(value: Double(package.checked), total: Double(package.total)).tint(Color(hex: "22C55E"))
+                        ProgressView(value: Double(package.checked), total: Double(max(package.total, 1))).tint(Color(hex: "22C55E"))
                     }
                 }
                 .buttonStyle(.plain)
@@ -301,27 +305,43 @@ private struct PackageDetailView: View {
                         DetailRow(label: "Courier Tracking", value: package.courierTracking, monospaced: true)
                         DetailRow(label: "Checked At", value: package.checkedAt)
                     }
-                    SectionCard("Unit Progress") {
+                    if let imageURL = package.imageURL {
+                        AsyncImage(url: imageURL) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image.resizable().scaledToFit()
+                            case .failure:
+                                Label("Photo could not be loaded", systemImage: "photo")
+                                    .font(.limu(size: 12)).foregroundStyle(LimuColors.muted)
+                                    .frame(maxWidth: .infinity).padding(.vertical, 24)
+                            default:
+                                ProgressView().tint(LimuColors.copper).frame(maxWidth: .infinity).padding(.vertical, 40)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .background(LimuColors.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .shadow(color: LimuColors.charcoal.opacity(0.06), radius: 5, y: 2)
+                    }
+                    SectionCard("Units Checked") {
                         HStack {
-                            Text("Units Verified").font(.limu(size: 13)).foregroundStyle(Color(hex: "374151"))
+                            Text("Checked at the warehouse").font(.limu(size: 13)).foregroundStyle(Color(hex: "374151"))
                             Spacer()
                             Text("\(package.checked) / \(package.total)").font(.limu(size: 15, weight: .heavy)).foregroundStyle(LimuColors.success)
                         }
-                        ProgressView(value: Double(package.checked), total: Double(package.total))
+                        ProgressView(value: Double(package.checked), total: Double(max(package.total, 1)))
                             .tint(Color(hex: "22C55E"))
                             .padding(.top, 10)
-                    }
-                    SectionCard("Stage Progress") {
-                        ForEach(Array(["Container Loading", "Offloading", "Loading Check", "Warehouse Check"].enumerated()), id: \.offset) { index, stage in
-                            HStack(spacing: 12) {
-                                Image(systemName: index < 3 ? "checkmark.circle.fill" : "circle")
-                                    .font(.limu(size: 22))
-                                    .foregroundStyle(index < 3 ? LimuColors.copper : LimuColors.muted)
-                                Text(stage).font(.limu(size: 13, weight: index < 3 ? .semibold : .regular)).foregroundStyle(index < 3 ? LimuColors.ink : LimuColors.muted)
-                                Spacer()
-                            }
-                            .padding(.bottom, index < 3 ? 14 : 0)
+                        HStack(spacing: 10) {
+                            Image(systemName: package.isChecked ? "checkmark.circle.fill" : "circle")
+                                .font(.limu(size: 20))
+                                .foregroundStyle(package.isChecked ? LimuColors.success : LimuColors.muted)
+                            Text(package.isChecked ? "Warehouse check complete" : "Awaiting warehouse check")
+                                .font(.limu(size: 13, weight: .semibold))
+                                .foregroundStyle(package.isChecked ? LimuColors.ink : LimuColors.muted)
+                            Spacer()
                         }
+                        .padding(.top, 14)
                     }
                 }
                 .padding(16)

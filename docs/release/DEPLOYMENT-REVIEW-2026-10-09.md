@@ -11,7 +11,7 @@ Kamanga). This file records how each agreed item was handled in the app and what
 | Lengthy form becomes multi-step | Registration (`AuthenticationView.swift`) is now three steps — **Account** (type, name), **Contact** (phone, email, district, business name), **Password** — with a step indicator, Back/Continue, and per-step validation. The KYC form in Profile was already stepped. |
 | Keyboard must not hide fields | Auth screens swap the tall hero header for a slim logo bar while the keyboard is up and add bottom padding; the KYC form gained `scrollDismissesKeyboard(.interactively)` (it already had bottom padding). Scroll views dismiss the keyboard on drag. |
 | Separate verification code from new-password screen | Password reset is two screens: **Step 1** enter the 6-digit code (with Resend), **Step 2** choose the new password. If the server rejects the code on submit, the user is returned to Step 1. The API contract is unchanged — code and password are still sent together in one call at the end. |
-| Terms & Conditions URL | `LimuLinks.terms` (`https://portal.limu.co.mw/terms`) added and linked from the last registration step and the KYC consent step. |
+| Terms & Conditions URL | `LimuLinks.terms` (`https://limu.co.mw/terms`) added and linked from the last registration step and the KYC consent step. |
 
 ## Open items (not code in this repo)
 

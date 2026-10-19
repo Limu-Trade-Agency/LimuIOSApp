@@ -29,6 +29,8 @@ struct APIError: LocalizedError {
             return "The email, phone, or password you entered is incorrect. Please try again."
         case "ACCOUNT_TEMPORARILY_LOCKED":
             return "Too many failed sign-in attempts. Please wait a few minutes and try again."
+        case "ACCOUNT_INACTIVE":
+            return "This account has been deactivated. To use it again, register with the same phone number or email and enter the code we send you."
         case "RATE_LIMITED":
             return "Too many attempts. Please wait a few minutes before trying again."
         default:

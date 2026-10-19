@@ -44,7 +44,7 @@ first request after deployment, like every other V4 table. Checklist in
 
 ### 3. Privacy policy page
 
-`https://portal.limu.co.mw/policy` is declared in the metadata and linked from two places in the app. A
+`https://limu.co.mw/policy` is declared in the metadata and linked from two places in the app. A
 full draft now exists at `policy/index.html` in the portal repository (`gochi20/limu`) —
 self-contained HTML, brand-styled, covering all six data types and the deletion retention carve-out.
 It sits at the repository root, which is the portal's document root, so it serves at `/policy` with
