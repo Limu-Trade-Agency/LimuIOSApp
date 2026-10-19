@@ -11,13 +11,18 @@ The app still permits insecure HTTP only for `localhost`, so the XAMPP override 
 ## Connected flows
 
 - Authentication: register, login, refresh, logout, forgot/reset password, account claim
+- Registration verification: WhatsApp phone OTP first (`POST /auth/verify-phone.php`), with email OTP as a fallback channel (`POST /auth/verify-email.php`, `POST /auth/resend-verification.php` with `channel`)
 - Dashboard and client profile
 - Profile update and password change
-- KYC detail load, draft save, completion (which now also writes the answers to the client record), shared option lists (`kyc/options.php`), and change requests for locked details (`kyc/change-requests.php`)
+- KYC detail load, draft save, completion (including writing the answers to the client record), shared option lists (`kyc/options.php`), database-backed category search, and change requests for locked details (`kyc/change-requests.php`)
+- KYC email verification gate: `POST /kyc/request-email-verification.php` and `POST /kyc/verify-email.php`; `kyc/submit.php` returns `EMAIL_VERIFICATION_REQUIRED` until the email is verified
 - Cargo list/detail, package data, and cargo timeline
 - Shipment list/detail and updates
-- Invoice list/detail, document link, payment history, and payment-proof upload
+- Live shipment pricelist from the portal shipping/customs pricing tables
+- Order form list/detail, including `GET /orderforms/index.php?clientId=...`, `GET /orderforms/show.php?id=...`, item decisions, and review completion
 - Notification list, mark read, and mark all read
+
+The invoice module (invoice list/detail and payment-proof upload) was removed from this app version; invoice notifications still route to the Order Forms tab.
 
 The V4 device-token endpoint was HTTP-tested successfully. App-side APNs registration still needs an Apple Push Notification entitlement/profile before a real iOS device token can be supplied to it.
 
@@ -25,11 +30,12 @@ The V4 device-token endpoint was HTTP-tested successfully. App-side APNs registr
 
 ### Live server status
 
-These V4 routes are now available on the live server and are wired into the app:
+These V4 routes are available in the backend code and are wired into the app:
 
 1. `POST /auth/verify-email.php`
 2. `POST /auth/resend-verification.php`
 3. `GET /categories/get.php`
+4. `GET /pricing/shipment.php` with `GET /shipment-pricelist.php` as a flat compatibility alias for production deployments
 
 `DELETE /profile/delete.php` (account deletion, required by App Store Review Guideline 5.1.1(v)) is
 implemented in the portal repository but **not yet deployed**. Contract and rollout notes in

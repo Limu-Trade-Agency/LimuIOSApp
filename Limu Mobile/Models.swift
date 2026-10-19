@@ -34,7 +34,6 @@ struct Cargo: Identifiable, Hashable {
     let collectionLocation: String?
     let notes: String?
     let checkedPackages: Int
-    let invoiceAPIID: Int?
 
     init(
         apiID: Int = 0,
@@ -51,8 +50,7 @@ struct Cargo: Identifiable, Hashable {
         readyForCollection: Bool,
         collectionLocation: String?,
         notes: String?,
-        checkedPackages: Int = 0,
-        invoiceAPIID: Int? = nil
+        checkedPackages: Int = 0
     ) {
         self.apiID = apiID
         self.id = id
@@ -64,12 +62,23 @@ struct Cargo: Identifiable, Hashable {
         self.location = location
         self.financeStatus = financeStatus
         self.shipmentName = shipmentName
-        self.createdAt = createdAt
+        self.createdAt = LimuDateFormatting.display(createdAt)
         self.readyForCollection = readyForCollection
         self.collectionLocation = collectionLocation
         self.notes = notes
         self.checkedPackages = checkedPackages
-        self.invoiceAPIID = invoiceAPIID
+    }
+
+    /// True once real charges exist (invoice issued/settled), at which point
+    /// price-list estimates are no longer shown.
+    var hasFinalizedCharges: Bool {
+        if status.caseInsensitiveCompare("Collected") == .orderedSame { return true }
+        let normalized = financeStatus.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized.isEmpty || normalized.contains("pending") { return false }
+        return normalized.contains("approved")
+            || normalized.contains("paid")
+            || normalized.contains("cleared")
+            || normalized.contains("complete")
     }
 }
 
@@ -87,6 +96,18 @@ struct CargoPackage: Identifiable, Hashable {
 
     /// Every unit of the package has been checked at the warehouse.
     var isChecked: Bool { total > 0 && checked >= total }
+
+    init(id: String, content: String, quantity: Int, type: String, code: String, courierTracking: String, checkedAt: String, total: Int, checked: Int) {
+        self.id = id
+        self.content = content
+        self.quantity = quantity
+        self.type = type
+        self.code = code
+        self.courierTracking = courierTracking
+        self.checkedAt = LimuDateFormatting.display(checkedAt)
+        self.total = total
+        self.checked = checked
+    }
 }
 
 struct TimelineEvent: Identifiable, Hashable {
@@ -95,6 +116,14 @@ struct TimelineEvent: Identifiable, Hashable {
     let description: String
     let timestamp: String
     let actor: String
+
+    init(id: String, title: String, description: String, timestamp: String, actor: String) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.timestamp = LimuDateFormatting.display(timestamp)
+        self.actor = actor
+    }
 }
 
 struct Shipment: Identifiable, Hashable {
@@ -128,8 +157,8 @@ struct Shipment: Identifiable, Hashable {
         self.name = name
         self.status = status
         self.mode = mode
-        self.departure = departure
-        self.arrival = arrival
+        self.departure = LimuDateFormatting.display(departure)
+        self.arrival = LimuDateFormatting.display(arrival)
         self.location = location
         self.cargoCount = cargoCount
         self.packageCount = packageCount
@@ -145,6 +174,198 @@ struct ShipmentUpdate: Identifiable, Hashable {
     let message: String
     let timestamp: String
     let actor: String
+
+    init(id: String, shipmentID: String, location: String, status: String, message: String, timestamp: String, actor: String) {
+        self.id = id
+        self.shipmentID = shipmentID
+        self.location = location
+        self.status = status
+        self.message = message
+        self.timestamp = LimuDateFormatting.display(timestamp)
+        self.actor = actor
+    }
+}
+
+struct ShipmentPricePolicy: Hashable {
+    let weightThresholdPerCbm: Double
+    let baseCurrency: String
+    let counterCurrency: String
+    let usdToRmbRate: Double
+    let exchangeRateSource: String
+    let exchangeRateAsOf: String?
+    let exchangeRateError: String?
+    let updatedAt: String?
+}
+
+struct ShipmentPriceList: Hashable {
+    let lastUpdated: String?
+    let customsLastUpdated: String?
+    let shippingLastUpdated: String?
+    let policy: ShipmentPricePolicy
+    let items: [ShipmentPriceItem]
+    let notes: [String]
+
+    var sections: [String] {
+        let preferred = ["Customs Fees", "Shipping Fees", "Air Cargo"]
+        let available = Set(items.map(\.category))
+        let ordered = preferred.filter { available.contains($0) }
+        var seen = Set(ordered)
+        let remaining = items.map(\.category).filter { section in
+            guard !seen.contains(section) else { return false }
+            seen.insert(section)
+            return true
+        }
+        return ordered + remaining
+    }
+}
+
+struct ShipmentPriceItem: Identifiable, Hashable {
+    let id: String
+    let category: String
+    let service: String
+    let route: String
+    let rate: Double?
+    let currency: String
+    let unit: String
+    let convertedRate: Double?
+    let convertedCurrency: String?
+    let updatedAt: String?
+    let note: String
+    let icon: String
+    let ratePrefix: String
+
+    init(
+        id: String,
+        category: String,
+        service: String,
+        route: String,
+        rate: Double?,
+        currency: String = LimuCurrency.defaultCode,
+        unit: String,
+        convertedRate: Double? = nil,
+        convertedCurrency: String? = nil,
+        updatedAt: String? = nil,
+        note: String,
+        icon: String,
+        ratePrefix: String = ""
+    ) {
+        self.id = id
+        self.category = category
+        self.service = service
+        self.route = route
+        self.rate = rate
+        self.currency = currency
+        self.unit = unit
+        self.convertedRate = convertedRate
+        self.convertedCurrency = convertedCurrency
+        self.updatedAt = updatedAt.map { LimuDateFormatting.display($0) }
+        self.note = note
+        self.icon = icon
+        self.ratePrefix = ratePrefix
+    }
+
+    var rateDisplay: String {
+        guard let rate else { return "Not set" }
+        let prefix = ratePrefix.isEmpty ? "" : "\(ratePrefix) "
+        return "\(prefix)\(LimuCurrency.money(rate, currency: currency)) / \(unit)"
+    }
+
+    var convertedRateDisplay: String? {
+        guard let convertedRate, let convertedCurrency else { return nil }
+        return "\(LimuCurrency.money(convertedRate, currency: convertedCurrency)) / \(unit)"
+    }
+
+    var updatedDisplay: String {
+        updatedAt?.isEmpty == false ? updatedAt! : "Not available"
+    }
+}
+
+struct CargoCostEstimate: Hashable {
+    struct Line: Hashable {
+        let amount: Double
+        let currency: String
+        let basis: String
+
+        var amountDisplay: String {
+            LimuCurrency.money(amount, currency: currency)
+        }
+    }
+
+    let shipping: Line?
+    let customs: Line?
+}
+
+extension ShipmentPriceList {
+    /// Client-guidance estimate computed from the live price list. Final
+    /// charges always come from the issued invoice.
+    func costEstimate(for cargo: Cargo, shipmentMode: String? = nil) -> CargoCostEstimate? {
+        let isAir = shipmentMode?.localizedCaseInsensitiveContains("air") == true
+        let shipping = isAir ? airShippingEstimate(for: cargo) : seaShippingEstimate(for: cargo)
+        let customs = customsEstimate(for: cargo)
+        guard shipping != nil || customs != nil else { return nil }
+        return CargoCostEstimate(shipping: shipping, customs: customs)
+    }
+
+    private func seaShippingEstimate(for cargo: Cargo) -> CargoCostEstimate.Line? {
+        guard cargo.volume > 0 else { return nil }
+        let tiers = items.filter { $0.category == "Shipping Fees" && $0.rate != nil }
+        guard !tiers.isEmpty else { return nil }
+
+        func matches(_ item: ShipmentPriceItem, _ keyword: String) -> Bool {
+            item.id.localizedCaseInsensitiveContains(keyword) || item.service.localizedCaseInsensitiveContains(keyword)
+        }
+
+        let density = cargo.weight / cargo.volume
+        let keyword = density >= policy.weightThresholdPerCbm ? "heavy" : "normal"
+        let tier = tiers.first { matches($0, keyword) }
+            ?? tiers.first { !matches($0, "dangerous") }
+            ?? tiers[0]
+        guard let rate = tier.rate else { return nil }
+        return CargoCostEstimate.Line(
+            amount: rate * cargo.volume,
+            currency: tier.currency,
+            basis: "\(tier.service) · \(LimuCurrency.money(rate, currency: tier.currency)) / \(tier.unit) × \(cargo.volume.formatted()) CBM"
+        )
+    }
+
+    private func airShippingEstimate(for cargo: Cargo) -> CargoCostEstimate.Line? {
+        guard cargo.weight > 0 else { return nil }
+        let rows = items.filter { $0.category == "Air Cargo" && $0.rate != nil }
+        let row = rows.first { !$0.service.isEmpty && cargo.summary.localizedCaseInsensitiveContains($0.service) }
+            ?? rows.first { $0.service.localizedCaseInsensitiveContains("general") }
+            ?? rows.first
+        guard let row, let rate = row.rate else { return nil }
+        return CargoCostEstimate.Line(
+            amount: rate * cargo.weight,
+            currency: row.currency,
+            basis: "\(row.service) · \(LimuCurrency.money(rate, currency: row.currency)) / \(row.unit) × \(cargo.weight.formatted()) kg"
+        )
+    }
+
+    private func customsEstimate(for cargo: Cargo) -> CargoCostEstimate.Line? {
+        guard cargo.volume > 0 else { return nil }
+        let rows = items.filter { $0.category == "Customs Fees" && $0.rate != nil }
+        guard !rows.isEmpty else { return nil }
+
+        func contentKeyword(_ service: String) -> String {
+            service
+                .replacingOccurrences(of: "goods", with: "", options: .caseInsensitive)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let row = rows.first { row in
+            let keyword = contentKeyword(row.service)
+            return !keyword.isEmpty && cargo.summary.localizedCaseInsensitiveContains(keyword)
+        }
+            ?? rows.first { $0.service.localizedCaseInsensitiveContains("assorted") }
+            ?? rows[0]
+        guard let rate = row.rate else { return nil }
+        return CargoCostEstimate.Line(
+            amount: rate * cargo.volume,
+            currency: row.currency,
+            basis: "\(row.service) · \(LimuCurrency.money(rate, currency: row.currency)) / \(row.unit) × \(cargo.volume.formatted()) CBM"
+        )
+    }
 }
 
 struct OrderFormItem: Identifiable, Hashable {
@@ -198,7 +419,7 @@ struct OrderFormItem: Identifiable, Hashable {
         self.lineTotal = lineTotal
         self.trackingNumber = trackingNumber
         self.photoURLs = photoURLs
-        self.createdAt = createdAt
+        self.createdAt = LimuDateFormatting.display(createdAt)
     }
 }
 
@@ -208,6 +429,14 @@ struct OrderFormStatusUpdate: Identifiable, Hashable {
     let note: String
     let changedBy: String
     let createdAt: String
+
+    init(id: String, status: String, note: String, changedBy: String, createdAt: String) {
+        self.id = id
+        self.status = status
+        self.note = note
+        self.changedBy = changedBy
+        self.createdAt = LimuDateFormatting.display(createdAt)
+    }
 }
 
 struct OrderFormTimelineStep: Identifiable, Hashable {
@@ -218,6 +447,16 @@ struct OrderFormTimelineStep: Identifiable, Hashable {
     let note: String
     let changedBy: String
     let createdAt: String
+
+    init(id: String, label: String, reached: Bool, active: Bool, note: String, changedBy: String, createdAt: String) {
+        self.id = id
+        self.label = label
+        self.reached = reached
+        self.active = active
+        self.note = note
+        self.changedBy = changedBy
+        self.createdAt = LimuDateFormatting.display(createdAt)
+    }
 }
 
 struct OrderForm: Identifiable, Hashable {
@@ -278,8 +517,8 @@ struct OrderForm: Identifiable, Hashable {
         self.id = id
         self.title = title
         self.status = status
-        self.orderDate = orderDate
-        self.createdAt = createdAt
+        self.orderDate = LimuDateFormatting.display(orderDate)
+        self.createdAt = LimuDateFormatting.display(createdAt)
         self.orderType = orderType
         self.orderTypeRate = orderTypeRate
         self.currency = LimuCurrency.code(currency)
@@ -326,7 +565,6 @@ struct Payment: Identifiable, Hashable {
         currency: String = LimuCurrency.defaultCode
     ) {
         self.id = id
-        self.amount = amount
         self.status = status
         self.date = date
         self.transactionID = transactionID
@@ -372,7 +610,6 @@ struct Invoice: Identifiable, Hashable {
         self.apiID = apiID
         self.id = id
         self.status = status
-        self.date = date
         self.total = total
         self.balance = balance
         self.discount = discount
@@ -386,7 +623,6 @@ struct Invoice: Identifiable, Hashable {
         self.orderFormNumber = orderFormNumber
     }
 }
-
 struct AppNotification: Identifiable, Hashable {
     let id: String
     let title: String
@@ -402,7 +638,7 @@ struct AppNotification: Identifiable, Hashable {
         self.title = title
         self.message = message
         self.category = category
-        self.timestamp = timestamp
+        self.timestamp = LimuDateFormatting.display(timestamp)
         self.isUnread = isUnread
         self.destination = destination
         self.objectID = objectID
@@ -445,6 +681,93 @@ enum MockData {
         ShipmentUpdate(id: "UPD-015-003", shipmentID: "SHP-0015", location: "Port Said, Egypt", status: "In Transit", message: "Vessel departed Port Said anchorage. Heading south through Red Sea.", timestamp: "2025-05-27 09:00", actor: "Operations"),
         ShipmentUpdate(id: "UPD-012-001", shipmentID: "SHP-0012", location: "Tema Port, Ghana", status: "Completed", message: "All cargo cleared and available for client collection at Limu Accra Depot.", timestamp: "2025-04-25 09:00", actor: "Operations")
     ]
+
+    static let shipmentPriceList = ShipmentPriceList(
+        lastUpdated: "Demo data",
+        customsLastUpdated: "Demo data",
+        shippingLastUpdated: "Demo data",
+        policy: ShipmentPricePolicy(
+            weightThresholdPerCbm: 400,
+            baseCurrency: "USD",
+            counterCurrency: "RMB",
+            usdToRmbRate: 7,
+            exchangeRateSource: "Demo fallback",
+            exchangeRateAsOf: nil,
+            exchangeRateError: nil,
+            updatedAt: "Demo data"
+        ),
+        items: [
+            ShipmentPriceItem(
+                id: "customs-assorted",
+                category: "Customs Fees",
+                service: "Assorted goods",
+                route: "Customs price per CBM",
+                rate: 285_000,
+                currency: LimuCurrency.defaultCode,
+                unit: "CBM",
+                updatedAt: "Demo data",
+                note: "Configured cargo-content customs fee.",
+                icon: "doc.text.fill"
+            ),
+            ShipmentPriceItem(
+                id: "shipping-normal",
+                category: "Shipping Fees",
+                service: "Normal goods",
+                route: "Below 400.00 kg/CBM",
+                rate: 120,
+                currency: "USD",
+                unit: "CBM",
+                convertedRate: 840,
+                convertedCurrency: "RMB",
+                updatedAt: "Demo data",
+                note: "Shipping fee per CBM.",
+                icon: "shippingbox.fill"
+            ),
+            ShipmentPriceItem(
+                id: "shipping-heavy",
+                category: "Shipping Fees",
+                service: "Heavy goods",
+                route: "At or above 400.00 kg/CBM",
+                rate: 160,
+                currency: "USD",
+                unit: "CBM",
+                convertedRate: 1_120,
+                convertedCurrency: "RMB",
+                updatedAt: "Demo data",
+                note: "Heavy-goods shipping fee per CBM.",
+                icon: "scalemass.fill"
+            ),
+            ShipmentPriceItem(
+                id: "air-general",
+                category: "Air Cargo",
+                service: "General goods",
+                route: "Air cargo fee per kg",
+                rate: 110,
+                currency: "RMB",
+                unit: "kg",
+                updatedAt: nil,
+                note: "Portal air-cargo guidance rate.",
+                icon: "airplane"
+            ),
+            ShipmentPriceItem(
+                id: "air-electronics",
+                category: "Air Cargo",
+                service: "Electronics",
+                route: "Air cargo fee per kg",
+                rate: 180,
+                currency: "RMB",
+                unit: "kg",
+                updatedAt: nil,
+                note: "Portal air-cargo guidance rate.",
+                icon: "airplane"
+            )
+        ],
+        notes: [
+            "This live pricelist is intended for client guidance.",
+            "Final invoice values follow measured shipment details and approved service terms.",
+            "Converted shipping values use the latest available USD to RMB exchange rate."
+        ]
+    )
 
     static let orderForms: [OrderForm] = [
         OrderForm(
@@ -509,26 +832,6 @@ enum MockData {
             declinedItemCount: 0,
             canClientReview: false
         )
-    ]
-
-    static let invoices: [Invoice] = [
-        Invoice(id: "INV-2025-0156", status: "Not Paid", date: "2025-06-04", total: 2450, balance: 2450, discount: 0, discountPercentage: 0, shipmentID: "SHP-0018", cargoID: "LMU-CGO-0041", currency: LimuCurrency.defaultCode, items: [
-            InvoiceItem(id: "ITM-001", label: "Handling Fee", quantity: 1, total: 80),
-            InvoiceItem(id: "ITM-002", label: "Storage – 3 days", quantity: 3, total: 45),
-            InvoiceItem(id: "ITM-003", label: "Customs Documentation", quantity: 1, total: 120),
-            InvoiceItem(id: "ITM-004", label: "Sea Freight (0.92 CBM)", quantity: 1, total: 1885),
-            InvoiceItem(id: "ITM-005", label: "Destination Charges", quantity: 1, total: 320)
-        ], payments: []),
-        Invoice(id: "INV-2025-0144", status: "Partially Paid", date: "2025-05-02", total: 1890, balance: 890, discount: 0, discountPercentage: 0, shipmentID: "SHP-0015", cargoID: "LMU-CGO-0038", currency: LimuCurrency.defaultCode, items: [
-            InvoiceItem(id: "ITM-006", label: "Handling Fee", quantity: 1, total: 60),
-            InvoiceItem(id: "ITM-007", label: "Sea Freight (1.24 CBM)", quantity: 1, total: 1550),
-            InvoiceItem(id: "ITM-008", label: "Destination Charges", quantity: 1, total: 280)
-        ], payments: [Payment(id: "PAY-001", amount: 1000, status: "Approved", date: "2025-05-14", transactionID: "TXN-GH-88420")]),
-        Invoice(id: "INV-2025-0128", status: "Paid", date: "2025-03-12", total: 980, balance: 0, discount: 50, discountPercentage: 5, shipmentID: "SHP-0012", cargoID: "LMU-CGO-0029", currency: LimuCurrency.defaultCode, items: [
-            InvoiceItem(id: "ITM-009", label: "Sea Freight (0.38 CBM)", quantity: 1, total: 750),
-            InvoiceItem(id: "ITM-010", label: "Destination Charges", quantity: 1, total: 180),
-            InvoiceItem(id: "ITM-011", label: "Loyalty Discount", quantity: 1, total: -50)
-        ], payments: [Payment(id: "PAY-002", amount: 980, status: "Approved", date: "2025-03-20", transactionID: "TXN-GH-71203")])
     ]
 
     static let notifications: [AppNotification] = [

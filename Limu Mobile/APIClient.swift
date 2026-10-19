@@ -30,9 +30,26 @@ struct APIError: LocalizedError {
         case "ACCOUNT_TEMPORARILY_LOCKED":
             return "Too many failed sign-in attempts. Please wait a few minutes and try again."
         case "ACCOUNT_INACTIVE":
+        case "ACCOUNT_INACTIVE":
             return "This account has been deactivated. To use it again, register with the same phone number or email and enter the code we send you."
         case "RATE_LIMITED":
             return "Too many attempts. Please wait a few minutes before trying again."
+        case "KYC_REQUIRED":
+            return "Complete your KYC details to unlock cargo, shipments, and order forms."
+        case "WHATSAPP_DELIVERY_FAILED":
+            return "WhatsApp verification is unavailable. Try again or use your email instead."
+        case "WHATSAPP_NOT_CONFIGURED":
+            return "WhatsApp verification is temporarily unavailable. Use your email instead."
+        case "WHATSAPP_VERIFICATION_EXPIRED":
+            return "That WhatsApp verification has expired. Create a new message and try again."
+        case "WHATSAPP_VERIFICATION_INVALID":
+            return "That WhatsApp verification is invalid. Create a new message and try again."
+        case "ACCOUNT_ALREADY_VERIFIED":
+            return "This account is already verified. Please sign in."
+        case "OTP_INVALID":
+            return "That code is incorrect. Check the latest code and try again."
+        case "OTP_INVALID_OR_EXPIRED":
+            return "That code is invalid or has expired. Request a new code and try again."
         default:
             return nil
         }
@@ -160,35 +177,23 @@ final class APIClient {
         _ = try await perform(path: path, method: method, body: body, authenticated: authenticated)
     }
 
-    func uploadPaymentProof(invoiceID: Int, amount: Double, transactionID: String, notes: String, fileURL: URL) async throws -> PaymentDTO {
-        let boundary = "Boundary-\(UUID().uuidString)"
-        var body = Data()
-        func append(_ value: String) { body.append(Data(value.utf8)) }
-        func field(_ name: String, _ value: String) {
-            append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n")
+    func getOrderForms(clientID: Int? = nil, perPage: Int = 100) async throws -> [OrderFormDTO] {
+        var query = [URLQueryItem(name: "perPage", value: String(perPage))]
+        if let clientID {
+            query.append(URLQueryItem(name: "clientId", value: String(clientID)))
         }
-        field("invoiceId", String(invoiceID))
-        field("amount", String(amount))
-        if !transactionID.isEmpty { field("transactionId", transactionID) }
-        if !notes.isEmpty { field("notes", notes) }
-
-        let scoped = fileURL.startAccessingSecurityScopedResource()
-        defer { if scoped { fileURL.stopAccessingSecurityScopedResource() } }
-        let fileData = try Data(contentsOf: fileURL)
-        let ext = fileURL.pathExtension.lowercased()
-        let mime = ext == "pdf" ? "application/pdf" : ext == "png" ? "image/png" : "image/jpeg"
-        append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\nContent-Type: \(mime)\r\n\r\n")
-        body.append(fileData)
-        append("\r\n--\(boundary)--\r\n")
-
-        let data = try await perform(
-            path: "payments/submit-proof.php",
-            method: "POST",
-            bodyData: body,
-            contentType: "multipart/form-data; boundary=\(boundary)",
-            authenticated: true
+        let response: OrderFormListDTO = try await get(
+            "orderforms/index.php",
+            query: query
         )
-        return try decodeData(data)
+        return response.items
+    }
+
+    func getOrderForm(id: Int) async throws -> OrderFormDTO {
+        try await get(
+            "orderforms/show.php",
+            query: [URLQueryItem(name: "id", value: String(id))]
+        )
     }
 
     private func perform(
@@ -235,7 +240,14 @@ final class APIClient {
         if http.statusCode == 401, authenticated, retryAfterRefresh, try await refreshSession() {
             return try await perform(path: path, method: method, query: query, bodyData: bodyData, contentType: contentType, authenticated: authenticated, retryAfterRefresh: false)
         }
-        guard (200..<300).contains(http.statusCode) else { throw decodeError(data, fallbackStatus: http.statusCode) }
+        guard (200..<300).contains(http.statusCode) else {
+            let error = decodeError(data, fallbackStatus: http.statusCode)
+            #if DEBUG
+            // Log only request metadata, never credentials or response bodies.
+            NSLog("Limu API: %@ %@ failed (HTTP %ld, code %@)", method, path, http.statusCode, error.code ?? "not provided")
+            #endif
+            throw error
+        }
         return data
     }
 

@@ -2,22 +2,29 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var appState: AppState
-    let unreadCount: Int
     let notifications: [AppNotification]
     let onNavigate: (AppTab) -> Void
     let onNotifications: () -> Void
+    let onOpenKYC: () -> Void
 
     private var activeCargo: [Cargo] { appState.cargo.filter { !["Collected", "Completed"].contains($0.status) } }
-    private var reviewOrderForms: [OrderForm] { appState.orderForms.filter(\.canClientReview) }
-    private var defaultCurrency: String {
-        LimuCurrency.code(appState.dashboard?.metrics.currency ?? appState.orderForms.first?.currency)
-    }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                hero
-                metrics
+                greetingCard
+                homeSections
+                Color.clear.frame(height: 24)
+            }
+        }
+        .refreshable { await appState.refreshHome() }
+        .background(LimuColors.cream)
+        .task { await appState.refreshHome() }
+    }
+
+    private var homeSections: some View {
+        VStack(spacing: 0) {
+            if appState.hasCompletedKYC {
                 homeSection("Active Cargo", seeAll: { onNavigate(.cargo) }) {
                     ForEach(activeCargo) { cargo in
                         Button { onNavigate(.cargo) } label: { cargoPreview(cargo) }
@@ -36,95 +43,169 @@ struct HomeView: View {
                             .buttonStyle(.plain)
                     }
                 }
-                homeSection("Notifications", seeAll: onNotifications) {
-                    ForEach(notifications.filter(\.isUnread).prefix(2)) { notification in
-                        notificationPreview(notification)
-                    }
+            } else {
+                kycUnlockCard
+                    .padding(.horizontal, 16)
+                    .padding(.top, 20)
+            }
+            homeSection("Notifications", seeAll: onNotifications) {
+                ForEach(notifications.filter(\.isUnread).prefix(2)) { notification in
+                    notificationPreview(notification)
                 }
-                Color.clear.frame(height: 24)
             }
         }
-        .background(LimuColors.cream)
-        .ignoresSafeArea(edges: .top)
-        .task { await appState.refreshHome() }
     }
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                LimuEmblemMark(size: 54)
-                Spacer()
-                Button(action: onNotifications) {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: "bell")
-                            .font(.limu(size: 18, weight: .medium))
-                            .foregroundStyle(.white)
-                            .frame(width: 38, height: 38)
-                            .background(.white.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                        if unreadCount > 0 {
-                            Circle().fill(LimuColors.copper).frame(width: 8, height: 8)
-                                .overlay { Circle().stroke(LimuColors.charcoal, lineWidth: 1.5) }
-                                .offset(x: -5, y: 5)
-                        }
+    private var kycUnlockCard: some View {
+        Button(action: onOpenKYC) {
+            LimuCard(padding: 16) {
+                HStack(spacing: 14) {
+                    BrandCircleSymbol(systemName: "lock.shield", diameter: 44, symbolSize: 18)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Unlock your logistics")
+                            .font(.limu(size: 14, weight: .bold))
+                            .foregroundStyle(LimuColors.ink)
+                        Text("Complete KYC once to access cargo, shipments, and order forms.")
+                            .font(.limu(size: 12))
+                            .foregroundStyle(LimuColors.secondary)
+                            .lineSpacing(2)
                     }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Notifications")
-            }
-            .padding(.bottom, 16)
-
-            Text("Good morning")
-                .font(.limu(size: 11))
-                .foregroundStyle(LimuColors.peach)
-            Text(profileTitle)
-                .font(.limu(size: 16, weight: .bold))
-                .foregroundStyle(.white)
-                .padding(.top, 1)
-                .padding(.bottom, 4)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 58)
-        .padding(.bottom, 28)
-        .background { BrandHeaderBackdrop() }
-    }
-
-    private var metrics: some View {
-        HStack(spacing: 10) {
-            metricCard(icon: "shippingbox.fill", gradient: [LimuColors.sunsetOrange, LimuColors.orange], value: "\(appState.dashboard?.metrics.activeCargoCount ?? activeCargo.count)", label: "Active Cargo") { onNavigate(.cargo) }
-            metricCard(icon: "storefront.fill", gradient: [LimuColors.success, Color(hex: "22C55E")], value: "\(appState.dashboard?.metrics.readyForCollectionCount ?? appState.cargo.filter(\.readyForCollection).count)", label: "For Collection") { onNavigate(.cargo) }
-            metricCard(icon: "list.clipboard.fill", gradient: [LimuColors.danger, Color(hex: "F87171")], value: "\(reviewOrderForms.count)", label: "For Review") { onNavigate(.orderForms) }
-        }
-        .padding(.horizontal, 16)
-        .offset(y: -14)
-        .padding(.bottom, -14)
-    }
-
-    private var profileTitle: String {
-        guard let profile = appState.profile else { return "Limu Client" }
-        if !profile.businessName.isEmpty { return "\(profile.firstName) · \(profile.businessName)" }
-        return profile.fullName
-    }
-
-    private func metricCard(icon: String, gradient: [Color], value: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            AccentCard(accentColor: gradient.first ?? LimuColors.copper, padding: 10) {
-                VStack(alignment: .leading, spacing: 0) {
-                    GradientIconTile(systemName: icon, colors: gradient, diameter: 32, symbolSize: 14)
-                        .padding(.bottom, 8)
-                    Text(value)
-                        .font(.limu(size: value.count > 4 ? 15 : 16, weight: .heavy))
-                        .foregroundStyle(LimuColors.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                    Text(label)
-                        .font(.limu(size: 10, weight: .semibold))
-                        .foregroundStyle(LimuColors.secondary)
-                        .padding(.top, 3)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.limu(size: 13, weight: .bold))
+                        .foregroundStyle(LimuColors.copper)
                 }
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<12: "Good morning"
+        case 12..<17: "Good afternoon"
+        default: "Good evening"
+        }
+    }
+
+    private var greetingCard: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(greeting.uppercased())
+                    .font(.limu(size: 12, weight: .bold))
+                    .tracking(1.3)
+                    .foregroundStyle(.white.opacity(0.88))
+                Text(displayName)
+                    .font(.limu(size: 27, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                if !businessName.isEmpty {
+                    Text(businessName)
+                        .font(.limu(size: 14))
+                        .foregroundStyle(.white.opacity(0.82))
+                }
+                HStack(spacing: 10) {
+                    statChip(value: "\(activeCargoCount)", label: "Active Cargo")
+                    statChip(value: "\(pickupCount)", label: "For Pickup")
+                    statChip(value: "\(shipmentCount)", label: "Total Shipments")
+                }
+                .padding(.top, 16)
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                ZStack {
+                    LinearGradient(
+                        colors: [Color(hex: "FA9E2D"), LimuColors.sunsetOrange, Color(hex: "E1780A")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    CargoWavePattern()
+                }
+            }
+
+            if !appState.hasCompletedKYC {
+                kycStrip
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: LimuColors.sunsetOrange.opacity(0.3), radius: 12, y: 5)
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+    }
+
+    private func statChip(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(.limu(size: 19, weight: .heavy))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+            Text(label.uppercased())
+                .font(.limu(size: 9, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(.white.opacity(0.85))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)
+        .background(.white.opacity(0.13))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.white.opacity(0.3), lineWidth: 1)
+        }
+    }
+
+    private var kycStrip: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.limu(size: 16, weight: .semibold))
+                .foregroundStyle(LimuColors.warning)
+            Text("KYC verification pending")
+                .font(.limu(size: 13, weight: .bold))
+                .foregroundStyle(Color(hex: "7C4A03"))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer(minLength: 8)
+            Button(action: onOpenKYC) {
+                Text("Resume")
+                    .font(.limu(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 9)
+                    .background(LimuColors.copper)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(hex: "FBF1E4"))
+    }
+
+    private var displayName: String {
+        guard let profile = appState.profile else { return "Limu Client" }
+        let first = profile.firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return first.isEmpty ? profile.fullName : first
+    }
+
+    private var businessName: String {
+        appState.profile?.businessName ?? ""
+    }
+
+    private var activeCargoCount: Int {
+        appState.dashboard?.metrics.activeCargoCount ?? activeCargo.count
+    }
+
+    private var pickupCount: Int {
+        appState.dashboard?.metrics.readyForCollectionCount ?? appState.cargo.filter(\.readyForCollection).count
+    }
+
+    private var shipmentCount: Int {
+        appState.shipments.count
     }
 
     private func homeSection<Content: View>(_ title: String, seeAll: @escaping () -> Void, @ViewBuilder content: () -> Content) -> some View {
@@ -189,7 +270,7 @@ struct HomeView: View {
             .padding(.vertical, 10)
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("DEPARTED").font(.limu(size: 10, weight: .semibold)).foregroundStyle(LimuColors.muted)
+                    Text("DEPARTURE").font(.limu(size: 10, weight: .semibold)).foregroundStyle(LimuColors.muted)
                     Text(shipment.departure).font(.limu(size: 12, weight: .bold))
                 }
                 HStack(spacing: 0) {
@@ -199,7 +280,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 8)
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("ETA").font(.limu(size: 10, weight: .semibold)).foregroundStyle(LimuColors.muted)
+                    Text("ARRIVAL").font(.limu(size: 10, weight: .semibold)).foregroundStyle(LimuColors.muted)
                     Text(shipment.arrival).font(.limu(size: 12, weight: .bold))
                 }
             }
@@ -219,7 +300,7 @@ struct HomeView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(MockData.money(orderForm.grandTotal, currency: defaultCurrency))
+                    Text(MockData.money(orderForm.grandTotal, currency: orderForm.currency))
                         .font(.limu(size: 15, weight: .bold))
                         .foregroundStyle(LimuColors.copper)
                     StatusBadge(status: orderForm.status)

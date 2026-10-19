@@ -3,23 +3,30 @@ import SwiftUI
 struct OrderFormsView: View {
     @EnvironmentObject private var appState: AppState
 
-    private enum Screen { case list, detail }
-
-    @State private var screen: Screen = .list
     @State private var selectedOrderForm: OrderForm?
+    @State private var loadingDetail = false
     @State private var filter = "All"
     @State private var search = ""
 
     private let filters = ["All", "Draft", "Client Review", "Pending Payment", "Pending Purchase", "Purchased", "Dormant"]
 
+    private func matchesFilter(_ orderForm: OrderForm, filter: String) -> Bool {
+        filter == "All" || orderForm.status.caseInsensitiveCompare(filter) == .orderedSame
+    }
+
+    private var filterCounts: [String: Int] {
+        Dictionary(uniqueKeysWithValues: filters.map { name in
+            (name, appState.orderForms.count { matchesFilter($0, filter: name) })
+        })
+    }
+
     private var filteredOrderForms: [OrderForm] {
         appState.orderForms.filter { orderForm in
-            let filterMatches = filter == "All" || orderForm.status.caseInsensitiveCompare(filter) == .orderedSame
             let searchMatches = search.isEmpty
                 || orderForm.id.localizedCaseInsensitiveContains(search)
                 || orderForm.title.localizedCaseInsensitiveContains(search)
                 || orderForm.shipmentReference.localizedCaseInsensitiveContains(search)
-            return filterMatches && searchMatches
+            return matchesFilter(orderForm, filter: filter) && searchMatches
         }
     }
 
@@ -28,34 +35,48 @@ struct OrderFormsView: View {
     }
 
     var body: some View {
-        Group {
-            switch screen {
-            case .list:
-                listView
-            case .detail:
-                if let orderForm = selectedOrderForm {
+        NavigationStack {
+            listView
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(item: $selectedOrderForm) { orderForm in
                     OrderFormDetailView(
                         orderForm: orderForm,
-                        onBack: { screen = .list },
+                        loadingDetail: loadingDetail,
+                        onBack: { selectedOrderForm = nil },
                         onUpdate: { updated in selectedOrderForm = updated }
                     )
+                    .toolbar(.hidden, for: .navigationBar)
                 }
-            }
         }
         .background(LimuColors.cream)
         .task { await appState.refreshOrderForms() }
     }
 
+    private func openOrderForm(_ orderForm: OrderForm) {
+        loadingDetail = true
+        selectedOrderForm = orderForm
+        Task {
+            defer { loadingDetail = false }
+            do {
+                let detail = try await appState.fetchOrderFormDetail(orderForm.apiID)
+                guard selectedOrderForm?.apiID == orderForm.apiID else { return }
+                selectedOrderForm = detail
+            } catch {
+                appState.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     private var listView: some View {
         VStack(spacing: 0) {
-            AppHeader {
-                HStack(alignment: .firstTextBaseline) {
+            PageHeader {
+                HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Order Forms")
                             .font(.limu(size: 18, weight: .bold))
                         Text(reviewCount == 1 ? "1 form needs your review" : "\(reviewCount) forms need your review")
                             .font(.limu(size: 12))
-                            .foregroundStyle(LimuColors.peach)
+                            .foregroundStyle(LimuColors.secondary)
                     }
                     Spacer()
                     GradientIconTile(systemName: "list.clipboard", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 40, symbolSize: 17)
@@ -68,15 +89,15 @@ struct OrderFormsView: View {
                         .foregroundStyle(LimuColors.muted)
                     TextField("Search order number, title, shipment…", text: $search)
                         .font(.limu(size: 13))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LimuColors.ink)
                         .textInputAutocapitalization(.never)
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 40)
-                .background(.white.opacity(0.1))
+                .background(LimuColors.softCream)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            FilterStrip(items: filters, selection: $filter)
+            FilterStrip(items: filters, selection: $filter, counts: filterCounts)
             ScrollView {
                 LazyVStack(spacing: 10) {
                     if filteredOrderForms.isEmpty {
@@ -84,15 +105,7 @@ struct OrderFormsView: View {
                     } else {
                         ForEach(filteredOrderForms) { orderForm in
                             Button {
-                                selectedOrderForm = orderForm
-                                screen = .detail
-                                Task {
-                                    do {
-                                        selectedOrderForm = try await appState.fetchOrderFormDetail(orderForm.apiID)
-                                    } catch {
-                                        appState.errorMessage = error.localizedDescription
-                                    }
-                                }
+                                openOrderForm(orderForm)
                             } label: {
                                 orderFormCard(orderForm)
                             }
@@ -102,6 +115,7 @@ struct OrderFormsView: View {
                 }
                 .padding(16)
             }
+            .refreshable { await appState.refreshOrderForms() }
         }
         .background(LimuColors.cream)
     }
@@ -181,6 +195,7 @@ private struct OrderFormDetailView: View {
     @EnvironmentObject private var appState: AppState
 
     let orderForm: OrderForm
+    let loadingDetail: Bool
     let onBack: () -> Void
     let onUpdate: (OrderForm) -> Void
 
@@ -298,13 +313,20 @@ private struct OrderFormDetailView: View {
             if orderForm.items.isEmpty {
                 LimuCard {
                     VStack(spacing: 10) {
-                        GradientIconTile(systemName: "shippingbox", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 92, symbolSize: 36)
-                        Text("No items captured")
-                            .font(.limu(size: 14, weight: .bold))
-                            .foregroundStyle(LimuColors.ink)
-                        Text("The portal order form has no product rows yet.")
-                            .font(.limu(size: 12))
-                            .foregroundStyle(LimuColors.secondary)
+                        if loadingDetail {
+                            ProgressView().tint(LimuColors.copper)
+                            Text("Loading items…")
+                                .font(.limu(size: 12, weight: .semibold))
+                                .foregroundStyle(LimuColors.secondary)
+                        } else {
+                            GradientIconTile(systemName: "shippingbox", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 92, symbolSize: 36)
+                            Text("No items captured")
+                                .font(.limu(size: 14, weight: .bold))
+                                .foregroundStyle(LimuColors.ink)
+                            Text("The portal order form has no product rows yet.")
+                                .font(.limu(size: 12))
+                                .foregroundStyle(LimuColors.secondary)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
@@ -338,7 +360,8 @@ private struct OrderFormDetailView: View {
                                 if index < orderForm.timeline.count - 1 {
                                     Rectangle()
                                         .fill(step.reached ? LimuColors.peach : LimuColors.divider.opacity(0.65))
-                                        .frame(width: 2, height: 52)
+                                        .frame(width: 2)
+                                        .frame(maxHeight: .infinity)
                                 }
                             }
                             VStack(alignment: .leading, spacing: 3) {
@@ -364,8 +387,10 @@ private struct OrderFormDetailView: View {
                                     .font(.limu(size: 11))
                                     .foregroundStyle(LimuColors.muted)
                             }
+                            .padding(.bottom, index < orderForm.timeline.count - 1 ? 16 : 0)
                             Spacer()
                         }
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }

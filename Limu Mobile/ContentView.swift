@@ -40,7 +40,7 @@ struct ContentView: View {
         .environment(\.font, .limu(size: 14))
         .background(LimuColors.cream.ignoresSafeArea())
         .tint(LimuColors.copper)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
         .task { await appState.bootstrap() }
         .onReceive(NotificationCenter.default.publisher(for: .limuDidRegisterForRemoteNotifications)) { notification in
             guard let token = notification.userInfo?["token"] as? String else { return }
@@ -63,6 +63,14 @@ struct ContentView: View {
     }
 
     private var mainApp: some View {
+        VStack(spacing: 0) {
+            LimuTopNav(unreadCount: appState.unreadCount) { showingNotifications = true }
+            mainContent
+        }
+        .background(LimuColors.cream)
+    }
+
+    private var mainContent: some View {
         Group {
             if appState.isReactivating {
                 // A reactivating account can do nothing until its fresh KYC is submitted: no tabs, no notifications.
@@ -85,17 +93,18 @@ struct ContentView: View {
                 TabView(selection: guardedTabSelection) {
                     Tab("Home", systemImage: AppTab.home.icon, value: AppTab.home) {
                         HomeView(
-                            unreadCount: appState.unreadCount,
                             notifications: appState.notifications,
                             onNavigate: navigate,
-                            onNotifications: { showingNotifications = true }
+                            onNotifications: { showingNotifications = true },
+                            onOpenKYC: openKYC
                         )
                     }
                     Tab("Shipments", systemImage: AppTab.shipments.icon, value: AppTab.shipments) {
                         ShipmentsHubView(segment: $shipmentsSegment)
                     }
+                    }
                     Tab("Order Forms", systemImage: AppTab.orderForms.icon, value: AppTab.orderForms) {
-                        OrderFormsView()
+                        kycGated(feature: "Order Forms") { OrderFormsView() }
                     }
                     Tab("Invoices", systemImage: AppTab.invoices.icon, value: AppTab.invoices) {
                         InvoicesView()
@@ -132,6 +141,15 @@ struct ContentView: View {
             if phase == .active, appState.isAuthenticated {
                 Task { await appState.refresh(tab: selectedTab) }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func kycGated<Content: View>(feature: String, @ViewBuilder content: () -> Content) -> some View {
+        if appState.hasCompletedKYC {
+            content()
+        } else {
+            KYCRestrictedView(feature: feature, onCompleteKYC: openKYC)
         }
     }
 
@@ -217,7 +235,7 @@ private struct KYCRestrictedView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AppHeader {
+            PageHeader {
                 Text(feature)
                     .font(.limu(size: 18, weight: .bold))
             }

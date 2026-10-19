@@ -47,10 +47,18 @@ struct ProfileView: View {
     }
 
     private var profile: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                profileHeader
+        VStack(spacing: 0) {
+            PageHeader {
+                HStack(spacing: 12) {
+                    Text("My Profile")
+                        .font(.limu(size: 18, weight: .bold))
+                    Spacer()
+                    BrandCircleSymbol(systemName: "person.fill", diameter: 40, symbolSize: 17)
+                }
+            }
+            ScrollView {
                 VStack(spacing: 12) {
+                    identityCard
                     if appState.hasCompletedKYC {
                         HStack(spacing: 10) {
                             statCard(icon: "ferry.fill", value: "\(appState.profile?.shipmentCount ?? appState.shipments.count)", label: "Total Shipments")
@@ -58,11 +66,17 @@ struct ProfileView: View {
                         }
                     }
                     SectionCard("Personal Details") {
+                    SectionCard("Personal Details") {
                         DetailRow(label: "Full Name", value: display(appState.profile?.fullName))
                         DetailRow(label: "Phone", value: phoneText)
                         DetailRow(label: "Email", value: display(appState.profile?.email))
                         DetailRow(label: "Gender", value: display(appState.profile?.gender))
                         DetailRow(label: "District", value: display(appState.profile?.location))
+                        DetailRow(label: "Date of Birth", value: display(appState.profile?.dateOfBirth))
+                        DetailRow(label: "Occupations", value: list(appState.profile?.occupations))
+                        DetailRow(label: "Interests", value: list(appState.profile?.interests))
+                        DetailRow(label: "Identification Type", value: display(appState.profile?.idType))
+                        DetailRow(label: "Identification Number", value: display(appState.profile?.idNumber))
                     }
                     if isBusinessAccount {
                         SectionCard("Business Details") {
@@ -73,7 +87,7 @@ struct ProfileView: View {
                             DetailRow(label: "Account Type", value: display(appState.profile?.clientType))
                         }
                     }
-                    SectionCard("Trade") {
+                    SectionCard("Trading Details") {
                         DetailRow(label: "Import / Export", value: display(appState.profile?.tradeIntent))
                         DetailRow(label: "Goods", value: list(appState.profile?.goodsCategories))
                         if isBusinessAccount {
@@ -83,7 +97,15 @@ struct ProfileView: View {
                             DetailRow(label: "Interests", value: list(appState.profile?.interests))
                         }
                     }
-                    SectionCard("KYC Details") {
+                        }
+                    }
+                    SectionCard("Trading Details") {
+                        DetailRow(label: "Trade Intent", value: displayValue(appState.profile?.tradeIntent))
+                        DetailRow(label: "Goods Categories", value: displayValue(appState.profile?.goodsCategories?.joined(separator: ", ")))
+                        DetailRow(label: "Service Categories", value: displayValue(appState.profile?.serviceCategories?.joined(separator: ", ")))
+                        DetailRow(label: "Notes", value: displayValue(appState.profile?.kycNotes))
+                    }
+                    SectionCard("Verification") {
                         HStack {
                             Text("Status").font(.limu(size: 13)).foregroundStyle(Color(hex: "374151"))
                             Spacer()
@@ -99,7 +121,7 @@ struct ProfileView: View {
                             .buttonStyle(.plain).padding(.top, 10)
                     }
                     LimuCard(padding: 0) {
-                        actionRow(icon: "pencil", title: "Edit Profile") { screen = .edit }
+                        actionRow(icon: "pencil", title: "Edit Client Profile", action: openProfileEditor)
                         actionRow(icon: "lock", title: "Change Password") { screen = .password }
                         actionRow(icon: "bell", title: "Notification Settings") { screen = .notifications }
                         actionRow(icon: "hand.raised", title: "Privacy Policy", external: true) { openURL(LimuLinks.privacyPolicy) }
@@ -109,39 +131,35 @@ struct ProfileView: View {
                     Color.clear.frame(height: 24)
                 }
                 .padding(.horizontal, 16)
-                .offset(y: -12)
-                .padding(.bottom, -12)
+                .padding(.top, 16)
             }
+            .refreshable { await appState.refreshDashboard() }
         }
         .background(LimuColors.cream)
-        .ignoresSafeArea(edges: .top)
     }
 
-    private var profileHeader: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("My Profile").font(.limu(size: 18, weight: .bold))
+    private var identityCard: some View {
+        LimuCard(padding: 16) {
             HStack(spacing: 14) {
                 Text(initials)
                     .font(.limu(size: 22, weight: .heavy)).foregroundStyle(.white)
                     .frame(width: 56, height: 56).background(LimuColors.copper).clipShape(Circle())
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(appState.profile?.fullName ?? "Limu Client").font(.limu(size: 17, weight: .bold))
-                    Text(appState.profile?.email ?? "").font(.limu(size: 12)).foregroundStyle(LimuColors.peach)
-                    // appState.profile?.customerCategory ?? "Client" would double up on the literal
-                    // "Client" suffix below when there's no category (nil profile, or a profile with
-                    // no category set) — build the label instead of the plain default-then-append.
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(appState.profile?.fullName ?? "Limu Client")
+                        .font(.limu(size: 17, weight: .bold))
+                        .foregroundStyle(LimuColors.ink)
+                    if let email = appState.profile?.email, !email.isEmpty {
+                        Text(email).font(.limu(size: 12)).foregroundStyle(LimuColors.secondary)
+                    }
                     Text((appState.profile?.customerCategory).map { "\($0) Client" } ?? "Client")
-                        .font(.limu(size: 10, weight: .bold)).foregroundStyle(LimuColors.peach)
+                        .font(.limu(size: 10, weight: .bold)).foregroundStyle(LimuColors.copper)
                         .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(LimuColors.copper.opacity(0.25)).clipShape(Capsule())
+                        .background(LimuColors.copperWash).clipShape(Capsule())
                         .overlay { Capsule().stroke(LimuColors.copper.opacity(0.5)) }
                 }
+                Spacer(minLength: 0)
             }
         }
-        .padding(.horizontal, 20).padding(.top, 64).padding(.bottom, 32)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .foregroundStyle(.white)
-        .background { BrandHeaderBackdrop() }
     }
 
     private var initials: String {
@@ -152,8 +170,19 @@ struct ProfileView: View {
 
     private func openKYCIfRequested() {
         guard shouldOpenKYC else { return }
-        screen = .kyc
+        openProfileEditor()
         shouldOpenKYC = false
+    }
+
+    private func openProfileEditor() {
+        kycStep = 0
+        kycCompleted = false
+        screen = .clientProfile
+    }
+
+    private func displayValue(_ value: String?) -> String {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "—" }
+        return value
     }
 
     private func statCard(icon: String, value: String, label: String) -> some View {
@@ -343,6 +372,7 @@ private struct EditProfileView: View {
         }
         return values
     }
+    }
 }
 
 private struct ChangePasswordView: View {
@@ -367,6 +397,107 @@ private struct ChangePasswordView: View {
                 }.padding(20)
             }
         }.background(LimuColors.cream)
+    }
+}
+
+private struct KYCEmailVerificationSheet: View {
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    let email: String
+    let onVerified: () -> Void
+
+    @State private var code = ""
+    @State private var sending = true
+    @State private var sendFailed = false
+    @State private var resent = false
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Capsule().fill(LimuColors.divider).frame(width: 40, height: 5).padding(.top, 10)
+
+            Image(systemName: "envelope.badge")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(LimuColors.copper)
+                .padding(.top, 8)
+                .accessibilityHidden(true)
+
+            VStack(spacing: 6) {
+                Text("Verify your email")
+                    .font(.limu(size: 18, weight: .bold))
+                    .foregroundStyle(LimuColors.ink)
+                Text("Before completing KYC, enter the code we sent to\n\(email)")
+                    .font(.limu(size: 13))
+                    .foregroundStyle(LimuColors.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+            }
+
+            if sendFailed {
+                Label("We couldn't send the email. Tap Resend code to try again.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.limu(size: 11, weight: .medium))
+                    .foregroundStyle(LimuColors.warning)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(hex: "FFFBEB"))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+
+            LimuTextField(label: "6-Digit Verification Code", placeholder: "000000", text: $code, keyboard: .numberPad)
+                .onChange(of: code) { _, value in
+                    code = String(value.filter(\.isNumber).prefix(6))
+                }
+
+            PrimaryButton(
+                title: appState.isBusy ? "Verifying…" : "Verify & Complete KYC",
+                loading: appState.isBusy,
+                disabled: code.count != 6 || sending
+            ) {
+                Task {
+                    if await appState.verifyKYCEmail(code: code) {
+                        onVerified()
+                    }
+                }
+            }
+
+            Button(appState.isBusy || sending ? "Sending…" : "Resend code") {
+                Task { await requestCode(isResend: true) }
+            }
+            .font(.limu(size: 13, weight: .semibold))
+            .foregroundStyle(LimuColors.copper)
+            .buttonStyle(.plain)
+            .disabled(appState.isBusy || sending)
+
+            if resent {
+                Label("A new code has been sent", systemImage: "checkmark.circle.fill")
+                    .font(.limu(size: 11, weight: .medium))
+                    .foregroundStyle(LimuColors.success)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 24)
+        .background(LimuColors.cream)
+        .presentationDetents([.medium, .large])
+        .task { await requestCode(isResend: false) }
+    }
+
+    private func requestCode(isResend: Bool) async {
+        sending = true
+        defer { sending = false }
+        if let response = await appState.requestKYCEmailVerification() {
+            sendFailed = false
+            if response.alreadyVerified == true {
+                onVerified()
+                return
+            }
+            if isResend {
+                code = ""
+                resent = true
+            }
+        } else {
+            sendFailed = true
+        }
     }
 }
 

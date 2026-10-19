@@ -1,4 +1,18 @@
 import SwiftUI
+import UIKit
+
+// The app hides the system navigation bar in favour of the branded BackHeader,
+// which normally disables the edge-swipe back gesture. This restores it.
+extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
+    override open func viewDidLoad() {
+        super.viewDidLoad()
+        interactivePopGestureRecognizer?.delegate = self
+    }
+
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        viewControllers.count > 1
+    }
+}
 
 enum LimuColors {
     // Official Limu palette from the Corporate Identity Brand Guidelines.
@@ -91,7 +105,7 @@ enum AppTab: String, CaseIterable {
         switch self {
         case .home: "house"
         case .cargo: "shippingbox"
-        case .shipments: "checklist"
+        case .shipments: "ferry"
         case .orderForms: "list.clipboard"
         case .invoices: "doc.text"
         case .profile: "person"
@@ -99,7 +113,10 @@ enum AppTab: String, CaseIterable {
     }
 
     var requiresCompletedKYC: Bool {
-        false
+        switch self {
+        case .cargo, .shipments, .orderForms: true
+        case .home, .profile: false
+        }
     }
 }
 
@@ -142,10 +159,37 @@ enum LimuDateFormatting {
     static func displayDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar.current
-        formatter.locale = Locale.current
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "dd/MM/yyyy"
         return formatter.string(from: date)
+    }
+
+    /// Normalizes any API/mock date string to the app-wide dd/MM/yyyy format
+    /// (keeping the time when present). Non-date strings pass through as-is.
+    static func display(_ value: String?) -> String {
+        let raw = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return raw }
+
+        let inputFormats: [(pattern: String, hasTime: Bool)] = [
+            ("yyyy-MM-dd'T'HH:mm:ssZ", true),
+            ("yyyy-MM-dd'T'HH:mm:ss", true),
+            ("yyyy-MM-dd HH:mm:ss", true),
+            ("yyyy-MM-dd HH:mm", true),
+            ("yyyy-MM-dd", false)
+        ]
+
+        let parser = DateFormatter()
+        parser.calendar = Calendar(identifier: .gregorian)
+        parser.locale = Locale(identifier: "en_US_POSIX")
+
+        for format in inputFormats {
+            parser.dateFormat = format.pattern
+            if let date = parser.date(from: raw) {
+                parser.dateFormat = format.hasTime ? "dd/MM/yyyy HH:mm" : "dd/MM/yyyy"
+                return parser.string(from: date)
+            }
+        }
+        return raw
     }
 
     static func clamped(_ date: Date, to range: ClosedRange<Date>) -> Date {
@@ -270,7 +314,7 @@ enum PhoneCountries {
         let country = detect(value) ?? defaultCountry
         let digits = country.nationalDigits(from: value)
         guard !digits.isEmpty else { return "" }
-        return "\(country.dialCode) \(country.format(digits))"
+        return "\(country.dialCode)\(digits)"
     }
 
     static func isValidPhone(_ value: String, defaultCountry: PhoneCountryOption = malawi) -> Bool {
@@ -309,6 +353,47 @@ struct BrandDotPattern: View {
             .opacity(opacity)
             .accessibilityHidden(true)
             .allowsHitTesting(false)
+    }
+}
+
+/// Brand "Cargo Wave" pattern — flowing lines representing movement of goods,
+/// from the Limu pattern variations sheet. Drawn at low opacity for subtle
+/// card backgrounds per the brand usage guidelines.
+struct CargoWavePattern: View {
+    var lineCount: Int = 6
+    var opacity: Double = 0.14
+
+    var body: some View {
+        Canvas { context, size in
+            let width = size.width
+            for index in 0..<lineCount {
+                let progress = Double(index) / Double(max(lineCount - 1, 1))
+                let baseY = size.height * (0.30 + 0.62 * progress)
+                let amplitude = 10.0 + 14.0 * progress
+                let phase = progress * 40
+
+                var path = Path()
+                path.move(to: CGPoint(x: -10, y: baseY))
+                let half = width / 2
+                path.addCurve(
+                    to: CGPoint(x: half, y: baseY - amplitude),
+                    control1: CGPoint(x: half * 0.4 - phase, y: baseY + amplitude),
+                    control2: CGPoint(x: half * 0.7 - phase, y: baseY - amplitude * 1.6)
+                )
+                path.addCurve(
+                    to: CGPoint(x: width + 10, y: baseY - amplitude * 0.2),
+                    control1: CGPoint(x: half * 1.35 + phase, y: baseY + amplitude * 0.4),
+                    control2: CGPoint(x: half * 1.7 + phase, y: baseY - amplitude * 1.2)
+                )
+                context.stroke(
+                    path,
+                    with: .color(.white.opacity(opacity * (0.75 + 0.25 * progress))),
+                    lineWidth: 1.4
+                )
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -369,6 +454,78 @@ struct BrandCircleSymbol: View {
     }
 }
 
+/// Persistent brand bar shown above every authenticated screen: horizontal
+/// Limu lockup on the left, notification bell on the right, with a charcoal
+/// bleed behind the light-content status bar.
+struct LimuTopNav: View {
+    let unreadCount: Int
+    let onBell: () -> Void
+
+    var body: some View {
+        HStack {
+            Image("LimuLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 24)
+                .accessibilityLabel("Limu Trade Agency")
+            Spacer()
+            Button(action: onBell) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "bell")
+                        .font(.limu(size: 19, weight: .medium))
+                        .foregroundStyle(LimuColors.ink)
+                        .frame(width: 38, height: 38)
+                    if unreadCount > 0 {
+                        Circle().fill(LimuColors.copper).frame(width: 9, height: 9)
+                            .overlay { Circle().stroke(LimuColors.white, lineWidth: 1.5) }
+                            .offset(x: -4, y: 3)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Notifications")
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        // White stays within the bar; the charcoal layer bleeds into the top
+        // safe area so the light-content status bar stays readable.
+        .background(LimuColors.white, ignoresSafeAreaEdges: [])
+        .background(LimuColors.charcoal, ignoresSafeAreaEdges: .top)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(LimuColors.charcoal.opacity(0.06)).frame(height: 1)
+        }
+    }
+}
+
+/// Light page header used beneath the persistent LimuTopNav on in-app
+/// screens. The charcoal AppHeader remains for the unauthenticated flow.
+struct PageHeader<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack {
+                LimuColors.white
+                BrandDotPattern(opacity: 0.22)
+            }
+        }
+        .foregroundStyle(LimuColors.ink)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(LimuColors.charcoal.opacity(0.08)).frame(height: 1)
+        }
+    }
+}
+
 struct AppHeader<Content: View>: View {
     let content: Content
 
@@ -400,11 +557,11 @@ struct BackHeader: View {
     let onBack: () -> Void
 
     var body: some View {
-        AppHeader {
+        PageHeader {
             Button(action: onBack) {
                 Label(backTitle, systemImage: "chevron.left")
                     .font(.limu(size: 13, weight: .medium))
-                    .foregroundStyle(LimuColors.peach)
+                    .foregroundStyle(LimuColors.copper)
             }
             .buttonStyle(.plain)
             .padding(.bottom, 8)
@@ -416,7 +573,7 @@ struct BackHeader: View {
                     if let subtitle {
                         Text(subtitle)
                             .font(.limu(size: 12))
-                            .foregroundStyle(LimuColors.peach)
+                            .foregroundStyle(LimuColors.secondary)
                     }
                 }
                 Spacer(minLength: 8)
@@ -500,6 +657,8 @@ struct StatusBadge: View {
 
     private var palette: (Color, Color, Color) {
         switch status {
+        case "Current":
+            (LimuColors.copperWash, LimuColors.copper, LimuColors.orange)
         case "Active", "In Warehouse", "In Transit", "Upcoming", "Departed", "Draft":
             (Color(hex: "EFF6FF"), Color(hex: "1D4ED8"), Color(hex: "3B82F6"))
         case "Ready for Collection", "Paid", "Approved", "Completed", "Purchased", "Item Approved":
@@ -565,7 +724,9 @@ struct PrimaryButton: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .foregroundStyle(LimuColors.darkRed)
-            .background(LimuColors.brandGradient.opacity(disabled ? 0.48 : 1))
+            .background {
+                LimuColors.brandGradient.opacity(disabled ? 0.48 : 1)
+            }
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -757,7 +918,7 @@ struct CountryPhoneField: View {
             return "Choose a country code and enter a \(selectedCountry.lengthDescription) number."
         }
         if selectedCountry.isValid(nationalDigits) {
-            return "Phone will be saved as \(selectedCountry.dialCode) \(selectedCountry.format(nationalDigits))."
+            return "Phone will be saved as \(selectedCountry.dialCode)\(nationalDigits)."
         }
         return "\(selectedCountry.name) numbers require \(selectedCountry.lengthDescription)."
     }
@@ -803,7 +964,7 @@ struct CountryPhoneField: View {
                     country: selectedCountry
                 ) { digits in
                     nationalDigits = digits
-                    writeFormattedPhone()
+                    writeNormalizedPhone()
                 }
                     .padding(.horizontal, 14)
                     .frame(height: 46)
@@ -824,7 +985,7 @@ struct CountryPhoneField: View {
         .onChange(of: selectedCountry) { _, country in
             nationalDigits = country.nationalDigits(from: nationalDigits)
             displayedNumber = country.format(nationalDigits)
-            writeFormattedPhone()
+            writeNormalizedPhone()
         }
         .sheet(isPresented: $isPresented) {
             CountryCodePicker(selection: $selectedCountry, isPresented: $isPresented)
@@ -855,10 +1016,10 @@ struct CountryPhoneField: View {
         }
     }
 
-    private func writeFormattedPhone() {
-        let formatted = nationalDigits.isEmpty ? "" : "\(selectedCountry.dialCode) \(selectedCountry.format(nationalDigits))"
-        if text != formatted {
-            text = formatted
+    private func writeNormalizedPhone() {
+        let normalized = nationalDigits.isEmpty ? "" : "\(selectedCountry.dialCode)\(nationalDigits)"
+        if text != normalized {
+            text = normalized
         }
     }
 }
@@ -1111,6 +1272,7 @@ private struct MalawiDistrictPicker: View {
 struct FilterStrip: View {
     let items: [String]
     @Binding var selection: String
+    var counts: [String: Int] = [:]
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -1119,16 +1281,27 @@ struct FilterStrip: View {
                     Button {
                         selection = item
                     } label: {
-                        Text(item)
-                            .font(.limu(size: 12, weight: .semibold))
-                            .foregroundStyle(selection == item ? LimuColors.copper : LimuColors.muted)
-                            .padding(.horizontal, 14)
-                            .frame(height: 42)
-                            .overlay(alignment: .bottom) {
-                                Rectangle()
-                                    .fill(selection == item ? LimuColors.copper : .clear)
-                                    .frame(height: 2)
+                        HStack(spacing: 5) {
+                            Text(item)
+                                .font(.limu(size: 12, weight: .semibold))
+                            if let count = counts[item] {
+                                Text("\(count)")
+                                    .font(.limu(size: 10, weight: .bold))
+                                    .foregroundStyle(selection == item ? .white : LimuColors.secondary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(selection == item ? LimuColors.copper : LimuColors.softCream)
+                                    .clipShape(Capsule())
                             }
+                        }
+                        .foregroundStyle(selection == item ? LimuColors.copper : LimuColors.muted)
+                        .padding(.horizontal, 14)
+                        .frame(height: 42)
+                        .overlay(alignment: .bottom) {
+                            Rectangle()
+                                .fill(selection == item ? LimuColors.copper : .clear)
+                                .frame(height: 2)
+                        }
                     }
                     .buttonStyle(.plain)
                 }

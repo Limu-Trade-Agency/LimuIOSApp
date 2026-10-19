@@ -5,69 +5,109 @@ struct CargoView: View {
     var hubSegment: Binding<String>?
     private enum Screen { case list, detail, package }
 
-    @State private var screen: Screen = .list
     @State private var selectedCargo: Cargo?
     @State private var selectedPackage: CargoPackage?
     @State private var packages: [CargoPackage] = []
     @State private var timeline: [TimelineEvent] = []
+    @State private var loadingDetail = false
     @State private var filter = "All"
     @State private var search = ""
 
     private let filters = ["All", "Active", "Ready for Collection", "Collected", "Payment Pending"]
 
+    private func matchesFilter(_ cargo: Cargo, filter: String) -> Bool {
+        switch filter {
+        case "Active": ["In Warehouse", "In Transit", "Loading"].contains { $0.caseInsensitiveCompare(cargo.status) == .orderedSame }
+        case "Ready for Collection": cargo.readyForCollection
+        case "Collected": cargo.status.caseInsensitiveCompare("Collected") == .orderedSame
+        case "Payment Pending": cargo.financeStatus.localizedCaseInsensitiveContains("pending")
+        default: true
+        }
+    }
+
+    private var filterCounts: [String: Int] {
+        Dictionary(uniqueKeysWithValues: filters.map { name in
+            (name, appState.cargo.count { matchesFilter($0, filter: name) })
+        })
+    }
+
     private var filteredCargo: [Cargo] {
         appState.cargo.filter { cargo in
-            let filterMatches: Bool = switch filter {
-            case "Active": ["In Warehouse", "In Transit", "Loading"].contains(cargo.status)
-            case "Ready for Collection": cargo.readyForCollection
-            case "Collected": cargo.status == "Collected"
-            case "Payment Pending": cargo.financeStatus == "Payment Pending"
-            default: true
-            }
             let searchMatches = search.isEmpty || cargo.id.localizedCaseInsensitiveContains(search) || cargo.summary.localizedCaseInsensitiveContains(search)
-            return filterMatches && searchMatches
+            return matchesFilter(cargo, filter: filter) && searchMatches
         }
     }
 
     var body: some View {
-        Group {
-            switch screen {
-            case .list: listView
-            case .detail:
-                if let selectedCargo {
-                    CargoDetailView(cargo: selectedCargo, packages: packages, timelineEvents: timeline, onBack: { screen = .list }, onPackage: { selectedPackage = $0; screen = .package })
+        NavigationStack {
+            listView
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(item: $selectedCargo) { cargo in
+                    CargoDetailView(
+                        cargo: cargo,
+                        packages: packages,
+                        timelineEvents: timeline,
+                        loadingDetail: loadingDetail,
+                        onBack: { selectedCargo = nil },
+                        onPackage: { selectedPackage = $0 }
+                    )
+                    .toolbar(.hidden, for: .navigationBar)
+                    .navigationDestination(item: $selectedPackage) { package in
+                        PackageDetailView(package: package) { selectedPackage = nil }
+                            .toolbar(.hidden, for: .navigationBar)
+                    }
                 }
-            case .package:
-                if let selectedPackage { PackageDetailView(package: selectedPackage) { screen = .detail } }
-            }
         }
         .task { await appState.refreshCargo() }
     }
 
+    private func openCargo(_ cargo: Cargo) {
+        packages = []
+        timeline = []
+        loadingDetail = true
+        selectedCargo = cargo
+        Task {
+            defer { loadingDetail = false }
+            do {
+                let detail = try await appState.fetchCargoDetail(cargo.apiID)
+                guard selectedCargo?.apiID == cargo.apiID else { return }
+                selectedCargo = detail.0
+                packages = detail.1
+                timeline = detail.2
+            } catch {
+                appState.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     private var listView: some View {
         VStack(spacing: 0) {
-            AppHeader {
-                Text("My Cargo")
-                    .font(.limu(size: 18, weight: .bold))
-                    .padding(.bottom, 12)
+            PageHeader {
+                HStack(spacing: 12) {
+                    Text("My Cargo")
+                        .font(.limu(size: 18, weight: .bold))
+                    Spacer()
+                    BrandCircleSymbol(systemName: "shippingbox.fill", diameter: 40, symbolSize: 17)
+                }
+                .padding(.bottom, 12)
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .font(.limu(size: 14))
                         .foregroundStyle(LimuColors.muted)
                     TextField("Search tracking number…", text: $search)
                         .font(.limu(size: 13))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LimuColors.ink)
                         .textInputAutocapitalization(.never)
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 40)
-                .background(.white.opacity(0.1))
+                .background(LimuColors.softCream)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             if let hubSegment {
                 SegmentedTabs(items: shipmentsHubSegments, selection: hubSegment)
             }
-            FilterStrip(items: filters, selection: $filter)
+            FilterStrip(items: filters, selection: $filter, counts: filterCounts)
             ScrollView {
                 LazyVStack(spacing: 10) {
                     if filteredCargo.isEmpty {
@@ -81,18 +121,7 @@ struct CargoView: View {
                     } else {
                         ForEach(filteredCargo) { cargo in
                             Button {
-                                selectedCargo = cargo
-                                screen = .detail
-                                Task {
-                                    do {
-                                        let detail = try await appState.fetchCargoDetail(cargo.apiID)
-                                        selectedCargo = detail.0
-                                        packages = detail.1
-                                        timeline = detail.2
-                                    } catch {
-                                        appState.errorMessage = error.localizedDescription
-                                    }
-                                }
+                                openCargo(cargo)
                             } label: {
                                 cargoCard(cargo)
                             }
@@ -102,8 +131,17 @@ struct CargoView: View {
                 }
                 .padding(16)
             }
+            .refreshable { await appState.refreshCargo() }
         }
         .background(LimuColors.cream)
+    }
+
+    private func costEstimate(for cargo: Cargo) -> CargoCostEstimate? {
+        guard !cargo.hasFinalizedCharges else { return nil }
+        return appState.shipmentPriceList.costEstimate(
+            for: cargo,
+            shipmentMode: appState.shipments.first { $0.name == cargo.shipmentName }?.mode
+        )
     }
 
     private func cargoCard(_ cargo: Cargo) -> some View {
@@ -124,6 +162,16 @@ struct CargoView: View {
                 HStack(spacing: 12) {
                     IconText(icon: "scalemass", text: "\(cargo.weight.formatted()) kg")
                     IconText(icon: "cube.transparent", text: "\(cargo.volume.formatted()) CBM")
+                }
+                if let estimate = costEstimate(for: cargo) {
+                    HStack(spacing: 12) {
+                        if let shipping = estimate.shipping {
+                            IconText(icon: "shippingbox.fill", text: "Est. shipping \(shipping.amountDisplay)")
+                        }
+                        if let customs = estimate.customs {
+                            IconText(icon: "doc.text.fill", text: "Est. customs \(customs.amountDisplay)")
+                        }
+                    }
                 }
             }
             .padding(.vertical, 10)
@@ -151,12 +199,35 @@ struct CargoView: View {
 }
 
 private struct CargoDetailView: View {
+    @EnvironmentObject private var appState: AppState
     let cargo: Cargo
     let packages: [CargoPackage]
     let timelineEvents: [TimelineEvent]
+    let loadingDetail: Bool
     let onBack: () -> Void
     let onPackage: (CargoPackage) -> Void
     @State private var tab = "Overview"
+
+    private var costEstimate: CargoCostEstimate? {
+        guard !cargo.hasFinalizedCharges else { return nil }
+        return appState.shipmentPriceList.costEstimate(
+            for: cargo,
+            shipmentMode: appState.shipments.first { $0.name == cargo.shipmentName }?.mode
+        )
+    }
+
+    private var loadingCard: some View {
+        LimuCard {
+            HStack(spacing: 10) {
+                ProgressView().tint(LimuColors.copper)
+                Text("Loading latest details…")
+                    .font(.limu(size: 12, weight: .semibold))
+                    .foregroundStyle(LimuColors.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -186,6 +257,21 @@ private struct CargoDetailView: View {
                 DetailRow(label: "Volume", value: "\(cargo.volume.formatted()) CBM")
                 DetailRow(label: "Shipment", value: cargo.shipmentName)
                 DetailRow(label: "Created", value: cargo.createdAt)
+            }
+            if let estimate = costEstimate {
+                SectionCard("Estimated Costs") {
+                    if let shipping = estimate.shipping {
+                        estimateRow(title: "Est. Shipping", line: shipping)
+                    }
+                    if let customs = estimate.customs {
+                        estimateRow(title: "Est. Customs", line: customs)
+                    }
+                    Label("Guidance from the live price list. Final charges follow your invoice.", systemImage: "info.circle")
+                        .font(.limu(size: 11))
+                        .foregroundStyle(LimuColors.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 2)
+                }
             }
             SectionCard("Finance & Payment") {
                 HStack {
@@ -236,16 +322,52 @@ private struct CargoDetailView: View {
         }
     }
 
+    private func estimateRow(title: String, line: CargoCostEstimate.Line) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .top, spacing: 12) {
+                Text(title)
+                    .font(.limu(size: 12))
+                    .foregroundStyle(LimuColors.secondary)
+                Spacer(minLength: 8)
+                Text(line.amountDisplay)
+                    .font(.limu(size: 13, weight: .bold))
+                    .foregroundStyle(LimuColors.ink)
+            }
+            Text(line.basis)
+                .font(.limu(size: 10))
+                .foregroundStyle(LimuColors.muted)
+        }
+        .padding(.bottom, 8)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(LimuColors.softCream).frame(height: 1)
+        }
+        .padding(.bottom, 8)
+    }
+
     private var timeline: some View {
-        LimuCard {
-            VStack(spacing: 0) {
-                ForEach(Array(timelineEvents.enumerated()), id: \.element.id) { index, event in
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(spacing: 4) {
-                            Circle().fill(index == 0 ? LimuColors.copper : LimuColors.divider).frame(width: 10, height: 10).padding(.top, 3)
-                            if index < timelineEvents.count - 1 {
-                                Rectangle().fill(LimuColors.peach).frame(width: 2, height: 54)
+        Group {
+            if loadingDetail && timelineEvents.isEmpty {
+                loadingCard
+            } else {
+                LimuCard {
+                    VStack(spacing: 0) {
+                        ForEach(Array(timelineEvents.enumerated()), id: \.element.id) { index, event in
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(spacing: 4) {
+                                    Circle().fill(index == 0 ? LimuColors.copper : LimuColors.divider).frame(width: 10, height: 10).padding(.top, 3)
+                                    if index < timelineEvents.count - 1 {
+                                        Rectangle().fill(LimuColors.peach).frame(width: 2).frame(maxHeight: .infinity)
+                                    }
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(event.title).font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.ink)
+                                    Text(event.description).font(.limu(size: 12)).foregroundStyle(LimuColors.secondary)
+                                    Text(event.timestamp).font(.limu(size: 11)).foregroundStyle(LimuColors.muted)
+                                }
+                                .padding(.bottom, index < timelineEvents.count - 1 ? 18 : 0)
+                                Spacer()
                             }
+                            .fixedSize(horizontal: false, vertical: true)
                         }
                         VStack(alignment: .leading, spacing: 3) {
                             Text(event.title).font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.ink)
@@ -261,6 +383,9 @@ private struct CargoDetailView: View {
 
     private var packagesView: some View {
         VStack(spacing: 10) {
+            if loadingDetail && packages.isEmpty {
+                loadingCard
+            }
             ForEach(packages) { package in
                 Button { onPackage(package) } label: {
                     AccentCard(accentColor: LimuColors.success, padding: 14) {

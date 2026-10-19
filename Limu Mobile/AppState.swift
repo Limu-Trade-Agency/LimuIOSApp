@@ -3,6 +3,13 @@ import Combine
 import UIKit
 import UserNotifications
 
+enum WhatsAppVerificationResult {
+    case pending
+    case authenticated
+    case completed
+    case failed
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var isAuthenticated = false
@@ -14,8 +21,8 @@ final class AppState: ObservableObject {
     @Published var dashboard: DashboardDTO?
     @Published var cargo: [Cargo] = []
     @Published var shipments: [Shipment] = []
-    @Published var invoices: [Invoice] = []
     @Published var orderForms: [OrderForm] = []
+    @Published var shipmentPriceList = MockData.shipmentPriceList
     @Published var notifications: [AppNotification] = []
     @Published private var demoKYCCompleted = false
 
@@ -36,7 +43,6 @@ final class AppState: ObservableObject {
             isCheckingSession = false
             cargo = MockData.cargo
             shipments = MockData.shipments
-            invoices = MockData.invoices
             orderForms = MockData.orderForms
             let demoNotifications = MockData.notifications
             notifications = demoKYCCompleted
@@ -103,9 +109,10 @@ final class AppState: ObservableObject {
     func register(firstName: String, lastName: String, email: String, phone: String, password: String, clientType: String, businessName: String, location: String) async -> RegistrationPayloadDTO? {
         var registration: RegistrationPayloadDTO?
         let success = await runBusy {
+            let e164Phone = PhoneCountries.normalizedPhone(phone)
             var body: [String: Any] = [
                 "firstName": firstName, "lastName": lastName, "email": email,
-                "phone": phone, "password": password, "clientType": clientType,
+                "phone": e164Phone, "password": password, "clientType": clientType,
                 "location": location, "deviceId": deviceID
             ]
             if !businessName.isEmpty { body["businessName"] = businessName }
@@ -140,27 +147,17 @@ final class AppState: ObservableObject {
     }
 
     func verifyRegistrationEmail(identifier: String, code: String) async -> Bool {
-        await runBusy {
-            let payload: AuthPayloadDTO = try await api.post(
-                "auth/verify-email.php",
-                body: ["identifier": identifier, "code": code, "deviceId": deviceID],
-                authenticated: false
-            )
-            api.store(payload.session, persist: true)
-            profile = payload.client
-            do { try await refreshAll() }
-            catch { api.clearSession(); throw error }
-            isAuthenticated = true
-            await registerStoredPushTokenIfAvailable()
-            configurePushNotifications()
-        }
+        await verifyRegistration(path: "auth/verify-email.php", identifier: identifier, code: code)
     }
 
-    /// Phone codes (WhatsApp or SMS at the backend's choice) are checked by verify-phone.php and sign the client straight in.
     func verifyRegistrationPhone(identifier: String, code: String) async -> Bool {
+        await verifyRegistration(path: "auth/verify-phone.php", identifier: identifier, code: code)
+    }
+
+    private func verifyRegistration(path: String, identifier: String, code: String) async -> Bool {
         await runBusy {
             let payload: AuthPayloadDTO = try await api.post(
-                "auth/verify-phone.php",
+                path,
                 body: ["identifier": identifier, "code": code, "deviceId": deviceID],
                 authenticated: false
             )
@@ -174,14 +171,69 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Resends the registration code on a specific channel ("sms" for the phone, or "email").
-    func resendRegistrationVerification(identifier: String, channel: String) async -> Bool {
-        await runBusy {
-            try await api.send(
+    func resendRegistrationVerification(identifier: String, channel: String = "whatsapp") async -> RegistrationVerificationDeliveryDTO? {
+        var delivery: RegistrationVerificationDeliveryDTO?
+        let success = await runBusy {
+            delivery = try await api.post(
                 "auth/resend-verification.php",
                 body: ["identifier": identifier, "channel": channel, "deviceId": deviceID],
                 authenticated: false
             )
+        }
+        return success ? delivery : nil
+    }
+
+    func completeWhatsAppVerification(token: String) async -> WhatsAppVerificationResult {
+        var result = WhatsAppVerificationResult.failed
+        let success = await runBusy {
+            let payload: WhatsAppVerificationStatusDTO = try await api.post(
+                "auth/whatsapp-status.php",
+                body: ["token": token, "deviceId": deviceID],
+                authenticated: false
+            )
+
+            switch payload.state {
+            case "authenticated":
+                guard let client = payload.client, let session = payload.session else {
+                    throw APIError(
+                        status: 500,
+                        message: "The server returned an incomplete verification response.",
+                        code: "INVALID_VERIFICATION_RESPONSE",
+                        fields: [:]
+                    )
+                }
+                api.store(session, persist: true)
+                profile = client
+                do { try await refreshAll() }
+                catch { api.clearSession(); throw error }
+                isAuthenticated = true
+                await registerStoredPushTokenIfAvailable()
+                configurePushNotifications()
+                result = .authenticated
+            case "completed":
+                result = .completed
+            default:
+                result = .pending
+            }
+        }
+        return success ? result : .failed
+    }
+
+    func requestKYCEmailVerification() async -> KYCEmailVerificationRequestDTO? {
+        if demoMode {
+            return KYCEmailVerificationRequestDTO(alreadyVerified: true, email: nil, expiresAt: nil, testCode: nil)
+        }
+        var payload: KYCEmailVerificationRequestDTO?
+        let success = await runBusy {
+            payload = try await api.post("kyc/request-email-verification.php", body: [:])
+        }
+        return success ? payload : nil
+    }
+
+    func verifyKYCEmail(code: String) async -> Bool {
+        if demoMode { return true }
+        return await runBusy {
+            try await api.send("kyc/verify-email.php", body: ["code": code])
         }
     }
 
@@ -271,8 +323,8 @@ final class AppState: ObservableObject {
         dashboard = nil
         cargo = []
         shipments = []
-        invoices = []
         orderForms = []
+        shipmentPriceList = MockData.shipmentPriceList
         notifications = []
     }
 
@@ -296,7 +348,7 @@ final class AppState: ObservableObject {
         }
         let orderFormDTOs: [OrderFormDTO]
         do {
-            orderFormDTOs = try await api.get("orderforms/index.php", query: [URLQueryItem(name: "perPage", value: "100")])
+            orderFormDTOs = try await fetchOrderFormDTOs(clientID: dashboardDTO.client.id)
         } catch {
             orderFormDTOs = dashboardDTO.orderForms ?? []
         }
@@ -308,12 +360,16 @@ final class AppState: ObservableObject {
             invoiceDTOs = loaded
         }
         let notificationDTOs: [NotificationDTO] = try await api.get("notifications/index.php", query: [URLQueryItem(name: "limit", value: "100")])
+        let priceListDTO = try? await fetchShipmentPriceListDTO()
         dashboard = dashboardDTO
         profile = dashboardDTO.client
         cargo = cargoDTOs.map(\.model)
         shipments = shipmentDTOs.map(\.model)
         invoices = invoiceDTOs.map(\.model)
         orderForms = orderFormDTOs.map(\.model)
+        if let priceListDTO {
+            shipmentPriceList = priceListDTO.model
+        }
         notifications = notificationDTOs.map(\.model)
         await hydrateOrderFormsFromNotifications()
     }
@@ -346,12 +402,47 @@ final class AppState: ObservableObject {
         }
     }
 
+    func refreshShipmentPriceList(showError: Bool = false) async {
+        guard liveSession else { return }
+        do {
+            let priceListDTO = try await fetchShipmentPriceListDTO()
+            shipmentPriceList = priceListDTO.model
+        } catch {
+            if showError {
+                errorMessage = "Shipment price list could not be loaded from the \(APIClient.environmentName) server. The pricing endpoint may not be deployed yet."
+            }
+        }
+    }
+
+    private func fetchShipmentPriceListDTO() async throws -> ShipmentPriceListDTO {
+        var lastError: Error?
+        for path in ["pricing/shipment.php", "shipment-pricelist.php"] {
+            do {
+                let priceListDTO: ShipmentPriceListDTO = try await api.get(path)
+                return priceListDTO
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError ?? URLError(.badServerResponse)
+    }
     func refreshOrderForms() async {
         guard liveSession else { return }
-        if let orderFormDTOs: [OrderFormDTO] = try? await api.get("orderforms/index.php", query: [URLQueryItem(name: "perPage", value: "100")]) {
+        if let orderFormDTOs = try? await fetchOrderFormDTOs(clientID: currentClientID) {
+            orderForms = orderFormDTOs.map(\.model)
+        } else if let dashboardDTO: DashboardDTO = try? await api.get("dashboard.php"), let orderFormDTOs = dashboardDTO.orderForms {
             orderForms = orderFormDTOs.map(\.model)
         }
+        await refreshNotifications()
         await hydrateOrderFormsFromNotifications()
+    }
+
+    private var currentClientID: Int? {
+        profile?.id ?? dashboard?.client.id
+    }
+
+    private func fetchOrderFormDTOs(clientID: Int?) async throws -> [OrderFormDTO] {
+        try await api.getOrderForms(clientID: clientID, perPage: 100)
     }
 
     func refreshNotifications() async {
@@ -388,7 +479,13 @@ final class AppState: ObservableObject {
         await refreshDashboard()
         await refreshCargo()
         await refreshShipments()
+        await refreshDashboard()
+        await refreshCargo()
+        await refreshShipments()
         await refreshInvoices()
+        await refreshShipmentPriceList()
+        await refreshOrderForms()
+        await refreshNotifications()
         await refreshOrderForms()
         await refreshNotifications()
     }
@@ -410,17 +507,11 @@ final class AppState: ObservableObject {
         return (shipment, (dto.updates ?? []).map { $0.model(shipmentID: shipment.id, location: shipment.location) }, (dto.cargo ?? []).map(\.model))
     }
 
-    func fetchInvoiceDetail(_ id: Int) async throws -> Invoice {
-        if demoMode { return invoices.first(where: { $0.apiID == id || id == 0 }) ?? MockData.invoices[0] }
-        let dto: InvoiceDTO = try await api.get("invoices/show.php", query: [URLQueryItem(name: "id", value: String(id))])
-        return dto.model
-    }
-
     func fetchOrderFormDetail(_ id: Int) async throws -> OrderForm {
         if demoMode {
             return orderForms.first(where: { $0.apiID == id || $0.id == "OF-\(id)" || id == 0 }) ?? MockData.orderForms[0]
         }
-        let dto: OrderFormDTO = try await api.get("orderforms/show.php", query: [URLQueryItem(name: "id", value: String(id))])
+        let dto = try await api.getOrderForm(id: id)
         let orderForm = dto.model
         upsertOrderForm(orderForm)
         return orderForm
@@ -671,6 +762,9 @@ final class AppState: ObservableObject {
             if submit { demoKYCCompleted = true }
             return true
         }
+        if !submit && hasCompletedKYC {
+            return await updateProfile(values)
+        }
         return await runBusy {
             let _: KYCRecordDTO
             if submit {
@@ -705,16 +799,9 @@ final class AppState: ObservableObject {
             return category == "order form" || notification.destination == .orderForms ? objectID : nil
         }
         for id in Array(Set(referencedIDs)).prefix(5) {
-            if let dto: OrderFormDTO = try? await api.get("orderforms/show.php", query: [URLQueryItem(name: "id", value: String(id))]) {
+            if let dto = try? await api.getOrderForm(id: id) {
                 upsertOrderForm(dto.model)
             }
-        }
-    }
-
-    func uploadPayment(invoiceID: Int, amount: Double, transactionID: String, notes: String, fileURL: URL) async -> Bool {
-        await runBusy {
-            let _: PaymentDTO = try await api.uploadPaymentProof(invoiceID: invoiceID, amount: amount, transactionID: transactionID, notes: notes, fileURL: fileURL)
-            try await refreshAll()
         }
     }
 

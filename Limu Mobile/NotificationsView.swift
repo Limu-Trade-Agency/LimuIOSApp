@@ -10,12 +10,12 @@ struct NotificationsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AppHeader {
+            PageHeader {
                 HStack(spacing: 10) {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
                             .font(.limu(size: 14, weight: .bold))
-                            .foregroundStyle(LimuColors.peach)
+                            .foregroundStyle(LimuColors.copper)
                     }
                     .buttonStyle(.plain)
                     Text("Notifications")
@@ -23,6 +23,7 @@ struct NotificationsView: View {
                     if unreadCount > 0 {
                         Text("\(unreadCount)")
                             .font(.limu(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
                             .background(LimuColors.copper)
@@ -34,7 +35,7 @@ struct NotificationsView: View {
                             Task { await appState.markAllRead() }
                         }
                         .font(.limu(size: 12, weight: .semibold))
-                        .foregroundStyle(LimuColors.peach)
+                        .foregroundStyle(LimuColors.copper)
                         .buttonStyle(.plain)
                     }
                 }
@@ -58,6 +59,7 @@ struct NotificationsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                 }
+                .refreshable { await appState.refreshNotifications() }
             }
         }
         .background(LimuColors.cream.ignoresSafeArea())
