@@ -18,7 +18,7 @@ struct HomeView: View {
             }
         }
         .refreshable { await appState.refreshHome() }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .task { await appState.refreshHome() }
     }
 

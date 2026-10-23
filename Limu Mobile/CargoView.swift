@@ -133,7 +133,7 @@ struct CargoView: View {
             }
             .refreshable { await appState.refreshCargo() }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private func costEstimate(for cargo: Cargo) -> CargoCostEstimate? {
@@ -244,7 +244,7 @@ private struct CargoDetailView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var overview: some View {
@@ -369,12 +369,6 @@ private struct CargoDetailView: View {
                             }
                             .fixedSize(horizontal: false, vertical: true)
                         }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(event.title).font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.ink)
-                            Text(event.description).font(.limu(size: 12)).foregroundStyle(LimuColors.secondary)
-                            Text(event.timestamp).font(.limu(size: 11)).foregroundStyle(LimuColors.muted)
-                        }
-                        Spacer()
                     }
                 }
             }
@@ -472,6 +466,6 @@ private struct PackageDetailView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 }

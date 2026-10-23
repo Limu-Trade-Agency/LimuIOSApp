@@ -184,6 +184,7 @@ struct DashboardDTO: Decodable {
     let activeCargo: [CargoDTO]
     let shipments: [ShipmentDTO]
     let orderForms: [OrderFormDTO]?
+    let invoices: [InvoiceDTO]?
     let notifications: [NotificationDTO]
 }
 

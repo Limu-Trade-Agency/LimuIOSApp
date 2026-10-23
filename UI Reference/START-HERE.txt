@@ -1,0 +1,69 @@
+LIMU MOBILE — ANDROID VISUAL HANDOFF
+Captured 16 September 2026
+
+85 PNG images covering 61 named screens/states, grouped by feature.
+
+HOW TO USE
+Open index.html after downloading and extracting the ZIP, or browse the Google Drive folders directly.
+--screen.png = original phone viewport, 1206 × 2622 pixels (402 × 874 points at 3×).
+--full.png = expanded-height capture with scrolling content visible at the same 402-point width. Use these to see content below the fold, not to infer the physical phone height or fixed navigation position.
+Where no full image exists, the content fits the captured viewport. The image inventory includes exact sizes.
+Start from the viewport for layout, then use the full image for every section/card/field.
+
+CAPTURE METHOD AND SCOPE
+Native SwiftUI/UIKit renders from the current local working tree, including its uncommitted UI changes, in an isolated screenshot build on the iPhone 17 Pro / iOS 26.5 simulator. These are app-view snapshots, not redesigned mockups. The production source was not edited for this capture task.
+The app's bundled demo records and synthetic contact details populate the screens. Authentication/KYC states are initialized directly; no real registration, verification, password change, or order action was submitted.
+Scrollable stacks are fully laid out in the capture build so long exports include all rows. Main app captures retain the top navigation and native bottom tabs. System status-bar time, battery, keyboard, and home indicator are not part of these app-view exports.
+Picker and verification-sheet contents are shown standalone for implementation reference; presentation dimming and half-height sheet surroundings are not captured. The components page is a reference composition of the real reusable components, not an app navigation destination.
+The photo preview includes the actual image-unavailable state because the bundled order examples contain no product photographs. Network-specific error wording, live-photo content, OS permission dialogs, keyboard variants, animations, and every possible data combination are outside this static visual pack.
+
+CURRENT UI TO REPLICATE
+Navigation is Home / Cargo / Shipments / Order Forms / Profile, with global Notifications. The latest source uses Order Forms for purchasing/financial information; it has no separate Invoices view.
+Capture the current screenshots faithfully. Earlier project notes mention a copper/peach palette, but the current DesignSystem.swift maps copper to sunset orange and peach to yellow.
+
+ACTUAL DESIGN TOKENS
+Charcoal/ink: #161A1C
+Sunset orange / copper alias: #FB7718
+Middle gradient orange: #FD891D
+Yellow / peach alias: #FFC628
+Page background: #F5F6F6
+Soft surface: #F7F8F8
+Card surface: #FFFFFF
+Secondary text: #5E666A
+Muted text: #899095
+Divider: #E1E4E5
+Orange wash: #FFF2E8
+Success: #15803D (wash #ECFDF5)
+Warning: #B45309
+Danger: #B91C1C (wash #FEF2F2)
+Primary button text: #150706
+Brand gradient: left-to-right #FB7718 → #FD891D → #FFC628
+
+LAYOUT / TYPE
+Use Poppins: Light, Regular, Medium, SemiBold and Bold. Font files exist in the app source; the Drive package contains screenshots and documentation only. Common body sizes are 12–15 points; main page headings 17–18; authentication hero 22.
+Most main screens use 16-point side margins; auth content uses 24; profile forms 20. Standard card corner radius is 14, primary button 12, text field 10. Standard text fields are 46 points high; phone/date fields may be taller. Cards generally use 16-point padding and a subtle shadow (black/charcoal at 6%, blur 5, vertical offset 2).
+Section headings: 11-point bold, uppercase, tracking 0.7. Field labels: 12-point semibold, uppercase, tracking 0.6. Primary buttons: 15-point bold with 14-point vertical padding. Disabled gradient opacity: 0.48.
+Treat iOS points as the initial Android dp/sp reference, then verify wrapping at the Android device width. Use semantic Android icons that match the pictured SF Symbols and preserve the original logo artwork.
+Original artwork and fonts remain in the app source and are not included in the Drive download. The screenshots show their usage. Do not substitute the logo with text or an improvised mark.
+
+FEATURE COVERAGE
+Authentication: sign-in, business/personal registration, forgot/reset password, claim account, WhatsApp verification/pending/completed, email verification.
+Home: populated dashboard and incomplete-KYC entry state.
+Cargo: all filters, empty list, overview, timeline, packages, package detail, ready-for-collection overview, loading fixture, KYC restriction.
+Shipments: all/active/upcoming/completed, overview, updates, customs/shipping/air price lists, KYC restriction.
+Order Forms: all/review/draft-empty, overview, item review controls, tracker, pending purchase, KYC restriction, unavailable photo preview.
+Profile: profile, edit, password, all four business KYC steps, personal account KYC, completion, email verification sheet.
+Notifications: populated and empty.
+Elements: country, district, business-category and date pickers; statuses, buttons, inputs and cards.
+
+SOURCE MAP
+01-Auth → AuthenticationView.swift
+02-Home → HomeView.swift; ContentView.swift
+03-Cargo → CargoView.swift
+04-Shipments → ShipmentsView.swift
+05-Order-Forms → OrderFormsView.swift
+06-Profile → ProfileView.swift
+07-Notifications → NotificationsView.swift
+08-Elements → DesignSystem.swift; Capture-only component reference
+
+SF-SYMBOL-REFERENCES.json lists icon identifiers and source locations to help select matching Android icons. It is a source-reference list, not an icon-font export.

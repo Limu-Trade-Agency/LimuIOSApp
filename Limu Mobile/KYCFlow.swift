@@ -180,7 +180,7 @@ struct KYCView: View {
             BackHeader(backTitle: backTitle, title: "KYC Details", onBack: onBack)
             ProgressView().tint(LimuColors.copper).frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private func load() async {
@@ -213,14 +213,14 @@ struct KYCView: View {
     private var header: some View {
         AppHeader {
             Button(action: onBack) {
-                Label(backTitle, systemImage: "chevron.left").font(.limu(size: 13, weight: .medium)).foregroundStyle(LimuColors.peach)
+                Label(backTitle, systemImage: "chevron.left").font(.limu(size: 13, weight: .medium)).foregroundStyle(LimuColors.secondary)
             }.buttonStyle(.plain).padding(.bottom, 8)
             HStack {
                 Text("KYC Details").font(.limu(size: 17, weight: .bold))
                 Spacer()
                 Text("\(appState.clientType) account")
                     .font(.limu(size: 10, weight: .bold))
-                    .foregroundStyle(LimuColors.peach)
+                    .foregroundStyle(LimuColors.secondary)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
                     .background(LimuColors.copper.opacity(0.24))
@@ -234,7 +234,7 @@ struct KYCView: View {
                 }
             }
             Text("Step \(step + 1) of \(steps.count): \(currentStep.rawValue)")
-                .font(.limu(size: 11)).foregroundStyle(LimuColors.peach).padding(.top, 6)
+                .font(.limu(size: 11)).foregroundStyle(LimuColors.secondary).padding(.top, 6)
         }
     }
 
@@ -271,7 +271,7 @@ struct KYCView: View {
                 }
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private func advance() async {
@@ -406,7 +406,7 @@ struct KYCView: View {
     private var doneView: some View {
         VStack(spacing: 0) {
             AppHeader {
-                Button(action: onBack) { Label(backTitle, systemImage: "chevron.left").font(.limu(size: 13)).foregroundStyle(LimuColors.peach) }.buttonStyle(.plain)
+                Button(action: onBack) { Label(backTitle, systemImage: "chevron.left").font(.limu(size: 13)).foregroundStyle(LimuColors.secondary) }.buttonStyle(.plain)
             }
             VStack(spacing: 16) {
                 Image(systemName: "checkmark.circle.fill").font(.limu(size: 66)).foregroundStyle(LimuColors.success)
@@ -420,7 +420,7 @@ struct KYCView: View {
                 Button("Back to Profile", action: onBack).font(.limu(size: 15, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 32).padding(.vertical, 13).background(LimuColors.copper).clipShape(RoundedRectangle(cornerRadius: 12)).buttonStyle(.plain).padding(.top, 12)
             }
             .padding(32).frame(maxWidth: .infinity, maxHeight: .infinity)
-        }.background(LimuColors.cream)
+        }.background(LimuColors.pageBackground)
     }
 }
 
@@ -481,7 +481,7 @@ struct KYCSummaryView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private func display(_ value: String) -> String {
@@ -633,6 +633,6 @@ struct KYCChangeRequestView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 }

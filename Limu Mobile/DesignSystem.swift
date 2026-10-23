@@ -22,6 +22,7 @@ enum LimuColors {
     static let limuGrey = Color(hex: "161A1C")
     static let darkRed = Color(hex: "150706")
     static let white = Color(hex: "FFFFFF")
+    static let pageBackground = white
 
     static let brandGradient = LinearGradient(
         colors: [sunsetOrange, orange, yellow],
@@ -115,7 +116,7 @@ enum AppTab: String, CaseIterable {
     var requiresCompletedKYC: Bool {
         switch self {
         case .cargo, .shipments, .orderForms: true
-        case .home, .profile: false
+        case .home, .invoices, .profile: false
         }
     }
 }
@@ -412,9 +413,11 @@ struct LimuOutlineLogoMark: View {
 }
 
 struct BrandHeaderBackdrop: View {
+    var isDark = false
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            LimuColors.charcoal
+            isDark ? LimuColors.charcoal : LimuColors.pageBackground
             BrandDotPattern(opacity: 0.14)
                 .frame(height: 88)
         }
@@ -455,8 +458,8 @@ struct BrandCircleSymbol: View {
 }
 
 /// Persistent brand bar shown above every authenticated screen: horizontal
-/// Limu lockup on the left, notification bell on the right, with a charcoal
-/// bleed behind the light-content status bar.
+/// Limu lockup on the left, notification bell on the right, with a white
+/// background extending behind the status bar.
 struct LimuTopNav: View {
     let unreadCount: Int
     let onBell: () -> Void
@@ -481,16 +484,14 @@ struct LimuTopNav: View {
                             .offset(x: -4, y: 3)
                     }
                 }
+                .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Notifications")
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        // White stays within the bar; the charcoal layer bleeds into the top
-        // safe area so the light-content status bar stays readable.
-        .background(LimuColors.white, ignoresSafeAreaEdges: [])
-        .background(LimuColors.charcoal, ignoresSafeAreaEdges: .top)
+        .padding(.bottom, 4)
+        .background(LimuColors.pageBackground, ignoresSafeAreaEdges: [.top, .horizontal])
         .overlay(alignment: .bottom) {
             Rectangle().fill(LimuColors.charcoal.opacity(0.06)).frame(height: 1)
         }
@@ -498,7 +499,7 @@ struct LimuTopNav: View {
 }
 
 /// Light page header used beneath the persistent LimuTopNav on in-app
-/// screens. The charcoal AppHeader remains for the unauthenticated flow.
+/// screens. AppHeader shares the same white background for other flows.
 struct PageHeader<Content: View>: View {
     let content: Content
 
@@ -527,9 +528,11 @@ struct PageHeader<Content: View>: View {
 }
 
 struct AppHeader<Content: View>: View {
+    let isDark: Bool
     let content: Content
 
-    init(@ViewBuilder content: () -> Content) {
+    init(isDark: Bool = false, @ViewBuilder content: () -> Content) {
+        self.isDark = isDark
         self.content = content()
     }
 
@@ -541,8 +544,8 @@ struct AppHeader<Content: View>: View {
         .padding(.top, 16)
         .padding(.bottom, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background { BrandHeaderBackdrop() }
-        .foregroundStyle(.white)
+        .background { BrandHeaderBackdrop(isDark: isDark) }
+        .foregroundStyle(isDark ? .white : LimuColors.ink)
         .overlay(alignment: .bottom) {
             Rectangle().fill(LimuColors.brandGradient).frame(height: 3)
         }
@@ -878,7 +881,7 @@ struct DatePickerField: View {
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(LimuColors.cream)
+                .background(LimuColors.pageBackground)
                 .navigationTitle(label)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -1151,7 +1154,7 @@ private struct CountryCodePicker: View {
                 }
                 .padding(.vertical, 8)
             }
-            .background(LimuColors.cream)
+            .background(LimuColors.pageBackground)
             .navigationTitle("Country Code")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $search, prompt: "Search country or code")
@@ -1255,7 +1258,7 @@ private struct MalawiDistrictPicker: View {
                 }
                 .padding(.vertical, 8)
             }
-            .background(LimuColors.cream)
+            .background(LimuColors.pageBackground)
             .navigationTitle("Select District")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $search, prompt: "Search districts")

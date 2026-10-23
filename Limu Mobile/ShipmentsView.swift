@@ -88,66 +88,24 @@ struct ShipmentsView: View {
         }
     }
 
-    var body: some View {
-        if let selectedShipment {
-            ShipmentDetailView(shipment: selectedShipment, updates: updates, cargo: shipmentCargo) { self.selectedShipment = nil }
-        } else {
-            VStack(spacing: 0) {
-                PageHeader {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("My Shipments")
-                                .font(.limu(size: 18, weight: .bold))
-                            Text("Shipments containing your cargo")
-                                .font(.limu(size: 12))
-                                .foregroundStyle(LimuColors.secondary)
-                                .padding(.top, 2)
-                        }
-                        Spacer()
-                        BrandCircleSymbol(systemName: "ferry.fill", diameter: 40, symbolSize: 17)
-                    }
-                }
-                if let hubSegment {
-                    SegmentedTabs(items: shipmentsHubSegments, selection: hubSegment)
-                }
-                FilterStrip(items: filters, selection: $filter)
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        if filtered.isEmpty {
-                            VStack(spacing: 10) {
-                                GradientIconTile(systemName: "ferry", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 108, symbolSize: 40)
-                                Text("No shipments in this group")
-                                    .font(.limu(size: 14, weight: .semibold))
-                                    .foregroundStyle(LimuColors.muted)
-                            }
-                            .padding(.top, 40)
-                        } else {
-                            ForEach(filtered) { shipment in
-                                Button {
-                                    selectedShipment = shipment
-                                    Task {
-                                        do {
-                                            let detail = try await appState.fetchShipmentDetail(shipment.apiID)
-                                            selectedShipment = detail.0
-                                            updates = detail.1
-                                            shipmentCargo = detail.2
-                                        } catch {
-                                            appState.errorMessage = error.localizedDescription
-                                        }
-                                    }
-                                } label: { shipmentCard(shipment) }
-                                    .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    private var listView: some View {
+        VStack(spacing: 0) {
+            PageHeader {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("My Shipments")
+                            .font(.limu(size: 18, weight: .bold))
+                        Text("Shipments containing your cargo")
+                            .font(.limu(size: 12))
+                            .foregroundStyle(LimuColors.secondary)
+                            .padding(.top, 2)
                     }
                     Spacer()
                     BrandCircleSymbol(systemName: "ferry.fill", diameter: 40, symbolSize: 17)
                 }
+            }
+            if let hubSegment {
+                SegmentedTabs(items: shipmentsHubSegments, selection: hubSegment)
             }
             FilterStrip(items: filters, selection: $filter, counts: filterCounts)
             ScrollView {
@@ -182,7 +140,7 @@ struct ShipmentsView: View {
                 await appState.refreshShipmentPriceList()
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var priceListEntry: some View {
@@ -312,7 +270,7 @@ private struct ShipmentPriceListView: View {
             }
             .refreshable { await appState.refreshShipmentPriceList(showError: true) }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .task {
             await appState.refreshShipmentPriceList(showError: true)
             if !categories.contains(category), let first = categories.first {
@@ -508,7 +466,7 @@ private struct ShipmentDetailView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var overview: some View {

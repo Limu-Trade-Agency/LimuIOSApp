@@ -21,6 +21,7 @@ final class AppState: ObservableObject {
     @Published var dashboard: DashboardDTO?
     @Published var cargo: [Cargo] = []
     @Published var shipments: [Shipment] = []
+    @Published var invoices: [Invoice] = []
     @Published var orderForms: [OrderForm] = []
     @Published var shipmentPriceList = MockData.shipmentPriceList
     @Published var notifications: [AppNotification] = []
@@ -323,6 +324,7 @@ final class AppState: ObservableObject {
         dashboard = nil
         cargo = []
         shipments = []
+        invoices = []
         orderForms = []
         shipmentPriceList = MockData.shipmentPriceList
         notifications = []
@@ -505,6 +507,24 @@ final class AppState: ObservableObject {
         let dto: ShipmentDTO = try await api.get("shipments/show.php", query: [URLQueryItem(name: "id", value: String(id))])
         let shipment = dto.model
         return (shipment, (dto.updates ?? []).map { $0.model(shipmentID: shipment.id, location: shipment.location) }, (dto.cargo ?? []).map(\.model))
+    }
+
+    func fetchInvoiceDetail(_ id: Int) async throws -> Invoice {
+        if demoMode {
+            guard let invoice = invoices.first(where: { $0.apiID == id || id == 0 }) else {
+                throw URLError(.resourceUnavailable)
+            }
+            return invoice
+        }
+        let dto: InvoiceDTO = try await api.get("invoices/show.php", query: [URLQueryItem(name: "id", value: String(id))])
+        return dto.model
+    }
+
+    func uploadPayment(invoiceID: Int, amount: Double, transactionID: String, notes: String, fileURL: URL) async -> Bool {
+        await runBusy {
+            let _: PaymentDTO = try await api.uploadPaymentProof(invoiceID: invoiceID, amount: amount, transactionID: transactionID, notes: notes, fileURL: fileURL)
+            try await refreshAll()
+        }
     }
 
     func fetchOrderFormDetail(_ id: Int) async throws -> OrderForm {

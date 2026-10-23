@@ -36,7 +36,7 @@ struct InvoicesView: View {
                     Text(MockData.money(outstanding, currency: defaultCurrency)).fontWeight(.bold).foregroundStyle(LimuColors.copper)
                 }
                 .font(.limu(size: 12))
-                .foregroundStyle(LimuColors.peach)
+                .foregroundStyle(LimuColors.secondary)
                 .padding(.top, 2)
             }
             FilterStrip(items: filters, selection: $filter)
@@ -68,7 +68,7 @@ struct InvoicesView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .task { await appState.refreshInvoices() }
     }
 
@@ -212,7 +212,7 @@ private struct InvoiceDetailView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 }
 
@@ -242,7 +242,7 @@ struct PaymentUploadView: View {
                 if state == .success { successView } else { formView }
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [.pdf, .jpeg, .png], allowsMultipleSelection: false) { result in
             switch result {
             case .success(let urls): fileURL = urls.first

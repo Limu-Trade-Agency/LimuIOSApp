@@ -62,7 +62,7 @@ struct NotificationsView: View {
                 .refreshable { await appState.refreshNotifications() }
             }
         }
-        .background(LimuColors.cream.ignoresSafeArea())
+        .background(LimuColors.pageBackground.ignoresSafeArea())
         .task { await appState.refreshNotifications() }
     }
 

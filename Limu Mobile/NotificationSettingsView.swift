@@ -59,7 +59,7 @@ struct NotificationSettingsView: View {
                 .padding(.bottom, 40)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .task {
             if let loadedPreferences = await appState.loadNotificationPreferences() {
                 preferences = loadedPreferences

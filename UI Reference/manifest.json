@@ -1,0 +1,682 @@
+[
+  {
+    "file": "01-Auth/01-sign-in--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "01-Auth/02-register-business--full.png",
+    "width_px": 1206,
+    "height_px": 3794,
+    "width_pt": 402.0,
+    "height_pt": 1264.67,
+    "type": "Full content"
+  },
+  {
+    "file": "01-Auth/02-register-business--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "01-Auth/03-register-personal--full.png",
+    "width_px": 1206,
+    "height_px": 3539,
+    "width_pt": 402.0,
+    "height_pt": 1179.67,
+    "type": "Full content"
+  },
+  {
+    "file": "01-Auth/03-register-personal--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "01-Auth/04-forgot-password--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "01-Auth/05-reset-code--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "01-Auth/06-claim-account--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "01-Auth/07-verify-whatsapp--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "01-Auth/08-whatsapp-pending--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "01-Auth/09-whatsapp-verified--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "01-Auth/10-verify-email--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "02-Home/01-dashboard--full.png",
+    "width_px": 1206,
+    "height_px": 4968,
+    "width_pt": 402.0,
+    "height_pt": 1656.0,
+    "type": "Full content"
+  },
+  {
+    "file": "02-Home/01-dashboard--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "02-Home/02-kyc-incomplete--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/01-list-all--full.png",
+    "width_px": 1206,
+    "height_px": 3476,
+    "width_pt": 402.0,
+    "height_pt": 1158.67,
+    "type": "Full content"
+  },
+  {
+    "file": "03-Cargo/01-list-all--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/02-list-active--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/03-list-ready--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/04-list-collected--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/05-list-payment--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/06-detail-overview--full.png",
+    "width_px": 1206,
+    "height_px": 3353,
+    "width_pt": 402.0,
+    "height_pt": 1117.67,
+    "type": "Full content"
+  },
+  {
+    "file": "03-Cargo/06-detail-overview--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/07-detail-timeline--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/08-detail-packages--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/09-package-detail--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/10-ready-overview--full.png",
+    "width_px": 1206,
+    "height_px": 2729,
+    "width_pt": 402.0,
+    "height_pt": 909.67,
+    "type": "Full content"
+  },
+  {
+    "file": "03-Cargo/10-ready-overview--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/11-detail-loading--full.png",
+    "width_px": 1206,
+    "height_px": 3353,
+    "width_pt": 402.0,
+    "height_pt": 1117.67,
+    "type": "Full content"
+  },
+  {
+    "file": "03-Cargo/11-detail-loading--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/12-kyc-restricted--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "03-Cargo/13-empty--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/01-list-all--full.png",
+    "width_px": 1206,
+    "height_px": 2841,
+    "width_pt": 402.0,
+    "height_pt": 947.0,
+    "type": "Full content"
+  },
+  {
+    "file": "04-Shipments/01-list-all--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/02-list-active--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/03-list-upcoming--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/04-list-completed--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/05-detail-overview--full.png",
+    "width_px": 1206,
+    "height_px": 2655,
+    "width_pt": 402.0,
+    "height_pt": 885.0,
+    "type": "Full content"
+  },
+  {
+    "file": "04-Shipments/05-detail-overview--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/06-detail-updates--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/07-prices-customs--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/08-prices-shipping--full.png",
+    "width_px": 1206,
+    "height_px": 3879,
+    "width_pt": 402.0,
+    "height_pt": 1293.0,
+    "type": "Full content"
+  },
+  {
+    "file": "04-Shipments/08-prices-shipping--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/09-prices-air--full.png",
+    "width_px": 1206,
+    "height_px": 3071,
+    "width_pt": 402.0,
+    "height_pt": 1023.67,
+    "type": "Full content"
+  },
+  {
+    "file": "04-Shipments/09-prices-air--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "04-Shipments/10-kyc-restricted--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "05-Order-Forms/01-list-all--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "05-Order-Forms/02-list-review--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "05-Order-Forms/03-list-draft-empty--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "05-Order-Forms/04-detail-overview--full.png",
+    "width_px": 1206,
+    "height_px": 3215,
+    "width_pt": 402.0,
+    "height_pt": 1071.67,
+    "type": "Full content"
+  },
+  {
+    "file": "05-Order-Forms/04-detail-overview--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "05-Order-Forms/05-detail-items--full.png",
+    "width_px": 1206,
+    "height_px": 4059,
+    "width_pt": 402.0,
+    "height_pt": 1353.0,
+    "type": "Full content"
+  },
+  {
+    "file": "05-Order-Forms/05-detail-items--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "05-Order-Forms/06-detail-tracker--full.png",
+    "width_px": 1206,
+    "height_px": 3368,
+    "width_pt": 402.0,
+    "height_pt": 1122.67,
+    "type": "Full content"
+  },
+  {
+    "file": "05-Order-Forms/06-detail-tracker--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "05-Order-Forms/07-purchase-overview--full.png",
+    "width_px": 1206,
+    "height_px": 2747,
+    "width_pt": 402.0,
+    "height_pt": 915.67,
+    "type": "Full content"
+  },
+  {
+    "file": "05-Order-Forms/07-purchase-overview--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "05-Order-Forms/08-kyc-restricted--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "05-Order-Forms/09-photo-preview-unavailable--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/01-profile--full.png",
+    "width_px": 1206,
+    "height_px": 3682,
+    "width_pt": 402.0,
+    "height_pt": 1227.33,
+    "type": "Full content"
+  },
+  {
+    "file": "06-Profile/01-profile--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/02-edit--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/03-password--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/04-kyc-personal-step--full.png",
+    "width_px": 1206,
+    "height_px": 3566,
+    "width_pt": 402.0,
+    "height_pt": 1188.67,
+    "type": "Full content"
+  },
+  {
+    "file": "06-Profile/04-kyc-personal-step--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/05-kyc-business-step--full.png",
+    "width_px": 1206,
+    "height_px": 2673,
+    "width_pt": 402.0,
+    "height_pt": 891.0,
+    "type": "Full content"
+  },
+  {
+    "file": "06-Profile/05-kyc-business-step--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/06-kyc-categories-step--full.png",
+    "width_px": 1206,
+    "height_px": 2932,
+    "width_pt": 402.0,
+    "height_pt": 977.33,
+    "type": "Full content"
+  },
+  {
+    "file": "06-Profile/06-kyc-categories-step--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/07-kyc-consent-step--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/08-kyc-completed--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/09-personal-account-kyc--full.png",
+    "width_px": 1206,
+    "height_px": 3566,
+    "width_pt": 402.0,
+    "height_pt": 1188.67,
+    "type": "Full content"
+  },
+  {
+    "file": "06-Profile/09-personal-account-kyc--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "06-Profile/10-kyc-email-sheet--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "07-Notifications/01-all--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "07-Notifications/02-empty--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "08-Elements/01-country-picker--full.png",
+    "width_px": 1206,
+    "height_px": 3974,
+    "width_pt": 402.0,
+    "height_pt": 1324.67,
+    "type": "Full content"
+  },
+  {
+    "file": "08-Elements/01-country-picker--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "08-Elements/02-district-picker--full.png",
+    "width_px": 1206,
+    "height_px": 4686,
+    "width_pt": 402.0,
+    "height_pt": 1562.0,
+    "type": "Full content"
+  },
+  {
+    "file": "08-Elements/02-district-picker--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "08-Elements/03-business-category-picker--full.png",
+    "width_px": 1206,
+    "height_px": 4118,
+    "width_pt": 402.0,
+    "height_pt": 1372.67,
+    "type": "Full content"
+  },
+  {
+    "file": "08-Elements/03-business-category-picker--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "08-Elements/04-date-picker--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  },
+  {
+    "file": "08-Elements/05-components--full.png",
+    "width_px": 1206,
+    "height_px": 4241,
+    "width_pt": 402.0,
+    "height_pt": 1413.67,
+    "type": "Full content"
+  },
+  {
+    "file": "08-Elements/05-components--screen.png",
+    "width_px": 1206,
+    "height_px": 2622,
+    "width_pt": 402.0,
+    "height_pt": 874.0,
+    "type": "Phone viewport"
+  }
+]

@@ -66,7 +66,6 @@ struct ProfileView: View {
                         }
                     }
                     SectionCard("Personal Details") {
-                    SectionCard("Personal Details") {
                         DetailRow(label: "Full Name", value: display(appState.profile?.fullName))
                         DetailRow(label: "Phone", value: phoneText)
                         DetailRow(label: "Email", value: display(appState.profile?.email))
@@ -96,14 +95,7 @@ struct ProfileView: View {
                             DetailRow(label: "Occupation", value: list(appState.profile?.occupations))
                             DetailRow(label: "Interests", value: list(appState.profile?.interests))
                         }
-                    }
-                        }
-                    }
-                    SectionCard("Trading Details") {
-                        DetailRow(label: "Trade Intent", value: displayValue(appState.profile?.tradeIntent))
-                        DetailRow(label: "Goods Categories", value: displayValue(appState.profile?.goodsCategories?.joined(separator: ", ")))
-                        DetailRow(label: "Service Categories", value: displayValue(appState.profile?.serviceCategories?.joined(separator: ", ")))
-                        DetailRow(label: "Notes", value: displayValue(appState.profile?.kycNotes))
+                        DetailRow(label: "Notes", value: display(appState.profile?.kycNotes))
                     }
                     SectionCard("Verification") {
                         HStack {
@@ -135,7 +127,7 @@ struct ProfileView: View {
             }
             .refreshable { await appState.refreshDashboard() }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var identityCard: some View {
@@ -170,19 +162,12 @@ struct ProfileView: View {
 
     private func openKYCIfRequested() {
         guard shouldOpenKYC else { return }
-        openProfileEditor()
+        screen = .kyc
         shouldOpenKYC = false
     }
 
     private func openProfileEditor() {
-        kycStep = 0
-        kycCompleted = false
-        screen = .clientProfile
-    }
-
-    private func displayValue(_ value: String?) -> String {
-        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "—" }
-        return value
+        screen = .edit
     }
 
     private func statCard(icon: String, value: String, label: String) -> some View {
@@ -309,7 +294,7 @@ private struct EditProfileView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .onAppear(perform: loadFromProfile)
         .task { options = await appState.loadKYCOptions() }
         .onChange(of: location) { _, _ in saved = false }
@@ -372,7 +357,6 @@ private struct EditProfileView: View {
         }
         return values
     }
-    }
 }
 
 private struct ChangePasswordView: View {
@@ -396,7 +380,7 @@ private struct ChangePasswordView: View {
                     }
                 }.padding(20)
             }
-        }.background(LimuColors.cream)
+        }.background(LimuColors.pageBackground)
     }
 }
 
@@ -477,7 +461,7 @@ private struct KYCEmailVerificationSheet: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 24)
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .presentationDetents([.medium, .large])
         .task { await requestCode(isResend: false) }
     }
@@ -548,7 +532,7 @@ private struct DeleteAccountView: View {
                         .buttonStyle(.plain)
                 }.padding(20)
             }
-        }.background(LimuColors.cream)
+        }.background(LimuColors.pageBackground)
     }
 
     private var warning: some View {

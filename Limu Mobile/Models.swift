@@ -97,7 +97,7 @@ struct CargoPackage: Identifiable, Hashable {
     /// Every unit of the package has been checked at the warehouse.
     var isChecked: Bool { total > 0 && checked >= total }
 
-    init(id: String, content: String, quantity: Int, type: String, code: String, courierTracking: String, checkedAt: String, total: Int, checked: Int) {
+    init(id: String, content: String, quantity: Int, type: String, code: String, courierTracking: String, checkedAt: String, total: Int, checked: Int, imageURL: URL? = nil) {
         self.id = id
         self.content = content
         self.quantity = quantity
@@ -107,6 +107,7 @@ struct CargoPackage: Identifiable, Hashable {
         self.checkedAt = LimuDateFormatting.display(checkedAt)
         self.total = total
         self.checked = checked
+        self.imageURL = imageURL
     }
 }
 
@@ -565,6 +566,7 @@ struct Payment: Identifiable, Hashable {
         currency: String = LimuCurrency.defaultCode
     ) {
         self.id = id
+        self.amount = amount
         self.status = status
         self.date = date
         self.transactionID = transactionID
@@ -610,6 +612,7 @@ struct Invoice: Identifiable, Hashable {
         self.apiID = apiID
         self.id = id
         self.status = status
+        self.date = LimuDateFormatting.display(date)
         self.total = total
         self.balance = balance
         self.discount = discount
