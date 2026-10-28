@@ -1,0 +1,145 @@
+LIMU Portal and Mobile App Review Meeting Minutes
+Date: 14 October 2026
+Time: 3:30–4:30 p.m. CAT
+Meeting type: Development progress and product review
+Participants: Chigomezgo Ndovie — General Manager; Andy — surname and role to be confirmed.
+Purpose: Review portal improvements, agree priorities for legacy-portal development, and identify mobile-app changes required before rollout.
+1. Review of New Portal Improvements
+Andy demonstrated changes arising from the previous review. The client-page field overflow had been corrected, and the KYC form had been reorganized into stages to reduce scrolling. KYC-link generation was tested successfully. Previous employee-module tickets were reported as closed.
+The use of an emailed password-reset link instead of an OTP was accepted because it reduced the steps required to reset a password.
+Agreements:
+Remove the separate background canvas behind the login graphic to improve its alignment.
+Retain the staged KYC layout.
+Provide a business-category dropdown containing accepted categories.
+Use a full-page, staged form for employee creation instead of a slide-out drawer.
+2. Consistency of Client and KYC Information
+The review identified inconsistencies between the client record, portal KYC form, and mobile-app KYC form. KYC completion had previously updated the status without consistently updating the underlying client information.
+Differences included business details, interests, intended imports or exports, and the fields displayed when viewing a client.
+Agreement: Align the KYC and client fields across the portal and mobile app. Submitted information should update the corresponding client record, and the client view should display the relevant information consistently. Personal and business accounts should show the appropriate fields.
+3. Next Phase of New Portal Development
+Andy explained that dedicated pages had been created for areas such as KYC follow-up and client portfolio, which had previously defaulted to client-information views.
+Chigomezgo emphasized that these functions needed to be defined with the relevant departments before further development, so that the team focused on useful requirements.
+Agreements:
+Complete the current corrections before defining the next tickets.
+Review operations in the following order: shipments, cargo, checklists, and dispatch and collections.
+Continue maintaining the legacy portal during development.
+Aim to meet on Monday, 19 October 2026, subject to booking an available slot, to review corrections and agree the next tickets and timeline.
+4. Legacy-Portal Priorities and Planning
+The team reviewed the portal-priority scoring document. Its criteria were:
+Criterion
+Weight
+Business impact
+30%
+Urgency and pain points
+25%
+Reach
+15%
+Risk and compliance
+15%
+Ease of implementation
+15%
+
+Issues discussed included shipment-invoice generation repeatedly requesting a retry, invoice changes in QuickBooks not appearing in the portal, the missing Apply Filter button, and navigation problems.
+The discussion clarified that the current QuickBooks connection was one-way and did not include a webhook to bring invoice edits back into the portal.
+Agreements:
+Use 65 and above as the starting priority threshold for the next planned work, following the initial discussion of a higher threshold.
+Include the selected work under continuous development of the legacy portal in the strategic plan due Friday, 16 October 2026.
+Organize legacy-portal tickets in a dedicated Legacy Portal ClickUp list, with work divided into sprints.
+Carry forward the budget for the deferred work into the next plan.
+The exact planning-period dates mentioned in this discussion were unclear in the recording and require confirmation.
+5. Mobile-App Registration, KYC and Profile Management
+The team tested registration, WhatsApp verification, KYC submission, profile editing, and account deactivation or re-registration. The simple registration flow was received positively, and the WhatsApp verification message was received during testing.
+Issues identified included an outdated consent link, inconsistent phone-number entries, a business-name update that did not appear correctly, and uncertainty around account reactivation and retained shipment information.
+Agreements:
+Update the consent link to the current destination.
+Correct inconsistencies between mobile-app information and the client record.
+Separate ordinary profile editing from changes to submitted KYC information. KYC changes should require a request rather than unrestricted editing.
+Review account deactivation and re-registration behavior, including phone verification and the connection to existing client records.
+Improve category and interest selection using selectable options rather than editable raw values.
+Correct the home-navigation behavior identified during testing.
+ID scanning and automatic extraction were discussed as possible future improvements. The team agreed to focus on the existing scope first.
+6. Cargo, Packages and Shipment Information
+Testing identified problems with the cargo-creation drawer, stage-progress display, package-checking information, shipment assignment visibility, and uploaded package images.
+The team also noted that “units verified” and “units checked” were behaving independently and needed review across the portal and app.
+Agreements:
+Replace the problematic cargo-creation drawer with a more suitable form flow.
+Correct progress displays and reconcile checking and verification information.
+Show current shipment assignments, package counts, and uploaded images.
+Fetch fresh information when users move between pages or tabs so that changes appear promptly.
+Remove staff names and internal attribution from customer-facing tracking updates.
+Rollout dependency: The app’s shipment experience should not be released before the corresponding shipment-update problems in the portal are fixed.
+7. Push Notifications and Notification Preferences
+An in-app notification appeared during testing, but a push notification was not received.
+Agreements:
+Configure iOS and Android apps within the existing LIMU Firebase project and use Firebase Cloud Messaging for push notifications.
+Provide the access needed to complete the configuration.
+Allow customers to choose notification channels, including WhatsApp and email, and the types of updates they wish to receive, such as shipment alerts and general updates.
+WhatsApp account verification and its budget implications were also raised for follow-up.
+8. Navigation and Invoices
+The team agreed that invoices needed a more prominent place in the mobile app. Cargo and shipments occupied separate navigation positions despite their close relationship.
+Agreements:
+Make cargo accessible from within the shipments area.
+Use the resulting navigation space for invoices.
+Include invoice functionality, including order-form invoices, in the development requirements.
+Keep invoice editing on the internal side rather than allowing clients to edit invoices.
+The possibility of replacing QuickBooks was discussed. No decision to discontinue QuickBooks was made. Any change would require a separate discussion with Finance and a suitable replacement for the existing invoice workflow.
+9. Delivery Plan and Follow-Up
+The team agreed that the mobile-app review findings needed to be converted into a concrete, prioritized development plan.
+Agreements:
+Document the end-to-end tickets and fixes, rank them, and prepare them for planning by Friday, 16 October 2026.
+Work toward 31 October 2026 as the target for a tangible, ready set of improvements, with the detailed scope and sequencing established through planning.
+Account for dependencies between the app, portal shipment updates, and Client Relations workflows.
+A closing discussion about client tiers began, but the recording ended before a complete agreement was captured.
+
+
+
+
+Action Register
+Action
+Responsible person(s)
+Deadline
+Complete the agreed new-portal interface corrections, including the login graphic, business-category dropdown, and employee-creation form.
+Andy
+For the proposed review on 19 October 2026
+Align client and KYC information across the portal and mobile app, including personal and business fields and client-record updates.
+Andy
+Review progress on 19 October; wider app work to be sequenced in the plan
+Arrange the follow-up review to assess corrections and define the next operations tickets and timeline.
+Andy, with Chigomezgo
+Target: 19 October 2026; subject to booking
+Include priority legacy-portal work scoring 65 or above, and the carried-forward budget, in the strategic plan.
+Andy
+16 October 2026
+Create a dedicated Legacy Portal list in ClickUp and organize work into sprints.
+Chigomezgo
+Not specified
+Document and prioritize the mobile-app tickets and fixes for planning.
+Andy
+16 October 2026
+Correct registration, account-record, KYC, profile-editing, consent-link, and navigation issues identified in testing.
+Andy
+Schedule in the prioritized plan; overall target 31 October 2026
+Correct cargo forms, progress displays, checking information, shipment assignments, refresh behavior, and package-image visibility.
+Andy
+Schedule in the prioritized plan; portal shipment fixes required before rollout
+Remove internal staff attribution from customer-facing tracking updates.
+Andy
+Schedule in the prioritized plan
+Arrange Firebase access and configure iOS and Android push notifications.
+Chigomezgo — access; Andy — configuration
+Not specified
+Define notification preferences by channel and update type.
+Andy
+Schedule in the prioritized plan
+Reorganize shipment/cargo navigation and include invoice functionality in the development requirements.
+Andy
+Capture in the plan due 16 October 2026
+Review any proposed replacement of QuickBooks with Finance before making a decision.
+Chigomezgo, with Finance
+Dependent on a suitable replacement workflow
+
+Meeting closed: 4:30 p.m. CAT.
+Record note: The supplied recording lasted approximately 68 minutes. The meeting times above follow the organizer’s confirmation. Andy’s full name and role, the complete attendee list, and the unclear planning-period dates remain to be confirmed.
+
+and when it comes to consitency of the KYC make it the best one 
+mind you you will use the legacy portal at limu to do some of the changes, when youre stuck ask me and we will go about it together
