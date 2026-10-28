@@ -49,7 +49,7 @@ struct OrderFormsView: View {
                     .toolbar(.hidden, for: .navigationBar)
                 }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .task { await appState.refreshOrderForms() }
         .task(id: appState.pendingLink) { await openPendingLink() }
         .sheet(isPresented: $showingLegend) { OrderFormStatusLegendSheet() }
@@ -140,7 +140,7 @@ struct OrderFormsView: View {
             }
             .refreshable { await appState.refreshOrderForms() }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var emptyState: some View {
@@ -251,7 +251,7 @@ private struct OrderFormDetailView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .sheet(isPresented: Binding(
             get: { previewImageURL != nil },
             set: { if !$0 { previewImageURL = nil } }

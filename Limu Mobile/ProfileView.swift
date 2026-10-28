@@ -101,6 +101,7 @@ struct ProfileView: View {
                             DetailRow(label: "Occupation", value: list(appState.profile?.occupations))
                             DetailRow(label: "Interests", value: list(appState.profile?.interests))
                         }
+                        DetailRow(label: "Notes", value: display(appState.profile?.kycNotes))
                     }
                     SectionCard("Verification") {
                         HStack {
@@ -132,7 +133,7 @@ struct ProfileView: View {
             }
             .refreshable { await appState.refreshDashboard() }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var identityCard: some View {
@@ -169,6 +170,10 @@ struct ProfileView: View {
         guard shouldOpenKYC else { return }
         screen = .kyc
         shouldOpenKYC = false
+    }
+
+    private func openProfileEditor() {
+        screen = .edit
     }
 
     private func statCard(icon: String, value: String, label: String) -> some View {
@@ -295,7 +300,7 @@ private struct EditProfileView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .onAppear(perform: loadFromProfile)
         .task { options = await appState.loadKYCOptions() }
         .onChange(of: location) { _, _ in saved = false }
@@ -381,7 +386,7 @@ private struct ChangePasswordView: View {
                     }
                 }.padding(20)
             }
-        }.background(LimuColors.cream)
+        }.background(LimuColors.pageBackground)
     }
 }
 
@@ -462,7 +467,7 @@ private struct KYCEmailVerificationSheet: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 24)
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .presentationDetents([.medium, .large])
         .task { await requestCode(isResend: false) }
     }
@@ -533,7 +538,7 @@ private struct DeleteAccountView: View {
                         .buttonStyle(.plain)
                 }.padding(20)
             }
-        }.background(LimuColors.cream)
+        }.background(LimuColors.pageBackground)
     }
 
     private var warning: some View {

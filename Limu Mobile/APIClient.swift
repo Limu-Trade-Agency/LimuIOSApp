@@ -176,6 +176,37 @@ final class APIClient {
         _ = try await perform(path: path, method: method, body: body, authenticated: authenticated)
     }
 
+    func uploadPaymentProof(invoiceID: Int, amount: Double, transactionID: String, notes: String, fileURL: URL) async throws -> PaymentDTO {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        func append(_ value: String) { body.append(Data(value.utf8)) }
+        func field(_ name: String, _ value: String) {
+            append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n")
+        }
+        field("invoiceId", String(invoiceID))
+        field("amount", String(amount))
+        if !transactionID.isEmpty { field("transactionId", transactionID) }
+        if !notes.isEmpty { field("notes", notes) }
+
+        let scoped = fileURL.startAccessingSecurityScopedResource()
+        defer { if scoped { fileURL.stopAccessingSecurityScopedResource() } }
+        let fileData = try Data(contentsOf: fileURL)
+        let ext = fileURL.pathExtension.lowercased()
+        let mime = ext == "pdf" ? "application/pdf" : ext == "png" ? "image/png" : "image/jpeg"
+        append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\nContent-Type: \(mime)\r\n\r\n")
+        body.append(fileData)
+        append("\r\n--\(boundary)--\r\n")
+
+        let data = try await perform(
+            path: "payments/submit-proof.php",
+            method: "POST",
+            bodyData: body,
+            contentType: "multipart/form-data; boundary=\(boundary)",
+            authenticated: true
+        )
+        return try decodeData(data)
+    }
+
     func getOrderForms(clientID: Int? = nil, perPage: Int = 100) async throws -> [OrderFormDTO] {
         var query = [URLQueryItem(name: "perPage", value: String(perPage))]
         if let clientID {

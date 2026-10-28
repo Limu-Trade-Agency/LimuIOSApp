@@ -111,7 +111,7 @@ struct AuthenticationView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
-        .background(LimuColors.cream.ignoresSafeArea())
+        .background(LimuColors.pageBackground.ignoresSafeArea())
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active, mode == .verifyEmail, isWhatsAppChannel, didOpenWhatsApp else { return }
             Task { await checkWhatsAppVerification() }
@@ -129,7 +129,7 @@ struct AuthenticationView: View {
         LimuOutlineLogoMark(width: 72)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity)
-            .background { BrandHeaderBackdrop() }
+            .background { BrandHeaderBackdrop(isDark: true) }
             .overlay(alignment: .bottom) {
                 Rectangle().fill(LimuColors.brandGradient).frame(height: 3)
             }
@@ -151,14 +151,14 @@ struct AuthenticationView: View {
         }
         .frame(maxWidth: .infinity)
         .foregroundStyle(.white)
-        .background { BrandHeaderBackdrop() }
+        .background { BrandHeaderBackdrop(isDark: true) }
         .overlay(alignment: .bottom) {
             Rectangle().fill(LimuColors.brandGradient).frame(height: 3)
         }
     }
 
     private var forgotHeader: some View {
-        AppHeader {
+        AppHeader(isDark: true) {
             Button {
                 if mode == .resetPassword {
                     mode = .reset
@@ -206,12 +206,12 @@ struct AuthenticationView: View {
         case .reactivate: return "Welcome back, we found your account"
         case .reset: return "Step 1 of 2: confirm it's you"
         case .resetPassword: return "Step 2 of 2: choose a new password"
-        default: return "We'll send a verification code by email and WhatsApp"
+        default: return "Request a verification code for your account"
         }
     }
 
     private var verificationHeader: some View {
-        AppHeader {
+        AppHeader(isDark: true) {
             Button {
                 mode = reactivating ? .reactivate : .register
                 registerStep = 2
@@ -440,6 +440,7 @@ struct AuthenticationView: View {
                     verificationPhone = (registration.phone ?? "").isEmpty ? phone : (registration.phone ?? phone)
                     verificationCode = ""
                     verificationResent = false
+                    verificationCodeSent = verificationChannel == "sms" ? (registration.smsSent ?? true) : registration.emailSent
                     mode = .verifyEmail
                 }
             }
@@ -847,7 +848,7 @@ struct AuthenticationView: View {
                 .disabled(appState.isBusy)
 
                 if resetResent {
-                    Label("A new code has been sent", systemImage: "checkmark.circle.fill")
+                    Label("A new code has been requested", systemImage: "checkmark.circle.fill")
                         .font(.limu(size: 11, weight: .medium))
                         .foregroundStyle(LimuColors.success)
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -876,11 +877,11 @@ struct AuthenticationView: View {
     }
 
     private var resetMessage: String {
-        let sent = "We sent a verification code by email and WhatsApp (or text message)."
+        let sent = "If your account is active and eligible, you'll receive a verification code."
         if resetIdentifier.contains("@") {
-            return "\(sent)\nCheck \(resetIdentifier) and your phone."
+            return "\(sent)\nCheck \(resetIdentifier), including Spam or Junk, and your phone. If no code arrives, contact Limu support for help with your account."
         }
-        return "\(sent)\nCheck your email and your phone."
+        return "\(sent)\nCheck your email, including Spam or Junk, and your phone. If no code arrives, contact Limu support for help with your account."
     }
 
     private var newPasswordRequirements: some View {

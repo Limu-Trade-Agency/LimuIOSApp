@@ -38,9 +38,10 @@ struct ContentView: View {
         }
         .environmentObject(appState)
         .environment(\.font, .limu(size: 14))
-        .background(LimuColors.cream.ignoresSafeArea())
+        .background(LimuColors.pageBackground.ignoresSafeArea())
         .tint(LimuColors.copper)
-        .preferredColorScheme(.light)
+        .preferredColorScheme(appState.isAuthenticated || appState.isCheckingSession ? .light : .dark)
+        .environment(\.colorScheme, .light)
         .task { await appState.bootstrap() }
         .onReceive(NotificationCenter.default.publisher(for: .limuDidRegisterForRemoteNotifications)) { notification in
             guard let token = notification.userInfo?["token"] as? String else { return }
@@ -67,7 +68,7 @@ struct ContentView: View {
             LimuTopNav(unreadCount: appState.unreadCount) { showingNotifications = true }
             mainContent
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var mainContent: some View {
@@ -122,7 +123,7 @@ struct ContentView: View {
                 .tint(LimuColors.sunsetOrange)
             }
         }
-        .background(LimuColors.cream.ignoresSafeArea())
+        .background(LimuColors.pageBackground.ignoresSafeArea())
         .task(id: appState.isReactivating) {
             if appState.isReactivating { openKYC() }
         }
@@ -275,7 +276,7 @@ private struct KYCRestrictedView: View {
             .padding(28)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(LimuColors.cream.ignoresSafeArea())
+        .background(LimuColors.pageBackground.ignoresSafeArea())
     }
 }
 

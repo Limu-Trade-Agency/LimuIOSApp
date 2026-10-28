@@ -375,6 +375,7 @@ final class AppState: ObservableObject {
         dashboard = nil
         cargo = []
         shipments = []
+        invoices = []
         orderForms = []
         shipmentPriceList = MockData.shipmentPriceList
         notifications = []
@@ -555,9 +556,21 @@ final class AppState: ObservableObject {
     }
 
     func fetchInvoiceDetail(_ id: Int) async throws -> Invoice {
-        if demoMode { return invoices.first(where: { $0.apiID == id || id == 0 }) ?? MockData.invoices[0] }
+        if demoMode {
+            guard let invoice = invoices.first(where: { $0.apiID == id || id == 0 }) else {
+                throw URLError(.resourceUnavailable)
+            }
+            return invoice
+        }
         let dto: InvoiceDTO = try await api.get("invoices/show.php", query: [URLQueryItem(name: "id", value: String(id))])
         return dto.model
+    }
+
+    func uploadPayment(invoiceID: Int, amount: Double, transactionID: String, notes: String, fileURL: URL) async -> Bool {
+        await runBusy {
+            let _: PaymentDTO = try await api.uploadPaymentProof(invoiceID: invoiceID, amount: amount, transactionID: transactionID, notes: notes, fileURL: fileURL)
+            try await refreshAll()
+        }
     }
 
     func fetchOrderFormDetail(_ id: Int) async throws -> OrderForm {

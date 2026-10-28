@@ -1,0 +1,512 @@
+[
+  {
+    "symbol": "ferry.fill",
+    "source": "ShipmentsView.swift",
+    "line": 87
+  },
+  {
+    "symbol": "ferry",
+    "source": "ShipmentsView.swift",
+    "line": 103
+  },
+  {
+    "symbol": "tag.fill",
+    "source": "ShipmentsView.swift",
+    "line": 129
+  },
+  {
+    "symbol": "chevron.right",
+    "source": "ShipmentsView.swift",
+    "line": 145
+  },
+  {
+    "symbol": "ferry.fill",
+    "source": "ShipmentsView.swift",
+    "line": 170
+  },
+  {
+    "symbol": "mappin",
+    "source": "ShipmentsView.swift",
+    "line": 184
+  },
+  {
+    "symbol": "tag",
+    "source": "ShipmentsView.swift",
+    "line": 224
+  },
+  {
+    "symbol": "arrow.left.arrow.right",
+    "source": "ShipmentsView.swift",
+    "line": 367
+  },
+  {
+    "symbol": "calendar",
+    "source": "ShipmentsView.swift",
+    "line": 369
+  },
+  {
+    "symbol": "info.circle",
+    "source": "ShipmentsView.swift",
+    "line": 370
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "ShipmentsView.swift",
+    "line": 416
+  },
+  {
+    "symbol": "tray",
+    "source": "ShipmentsView.swift",
+    "line": 512
+  },
+  {
+    "symbol": "clock",
+    "source": "ShipmentsView.swift",
+    "line": 539
+  },
+  {
+    "symbol": "person.fill",
+    "source": "ProfileView.swift",
+    "line": 36
+  },
+  {
+    "symbol": "ferry.fill",
+    "source": "ProfileView.swift",
+    "line": 44
+  },
+  {
+    "symbol": "calendar",
+    "source": "ProfileView.swift",
+    "line": 45
+  },
+  {
+    "symbol": "pencil",
+    "source": "ProfileView.swift",
+    "line": 75
+  },
+  {
+    "symbol": "lock",
+    "source": "ProfileView.swift",
+    "line": 76
+  },
+  {
+    "symbol": "rectangle.portrait.and.arrow.right",
+    "source": "ProfileView.swift",
+    "line": 77
+  },
+  {
+    "symbol": "chevron.right",
+    "source": "ProfileView.swift",
+    "line": 141
+  },
+  {
+    "symbol": "chevron.left",
+    "source": "ProfileView.swift",
+    "line": 207
+  },
+  {
+    "symbol": "chevron.down",
+    "source": "ProfileView.swift",
+    "line": 390
+  },
+  {
+    "symbol": "chevron.left",
+    "source": "ProfileView.swift",
+    "line": 401
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "ProfileView.swift",
+    "line": 404
+  },
+  {
+    "symbol": "magnifyingglass",
+    "source": "ProfileView.swift",
+    "line": 484
+  },
+  {
+    "symbol": "xmark.circle.fill",
+    "source": "ProfileView.swift",
+    "line": 493
+  },
+  {
+    "symbol": "xmark",
+    "source": "ProfileView.swift",
+    "line": 524
+  },
+  {
+    "symbol": "magnifyingglass",
+    "source": "ProfileView.swift",
+    "line": 573
+  },
+  {
+    "symbol": "envelope.badge",
+    "source": "ProfileView.swift",
+    "line": 720
+  },
+  {
+    "symbol": "exclamationmark.triangle.fill",
+    "source": "ProfileView.swift",
+    "line": 738
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "ProfileView.swift",
+    "line": 773
+  },
+  {
+    "symbol": "doc.text.fill",
+    "source": "APIModels.swift",
+    "line": 643
+  },
+  {
+    "symbol": "airplane",
+    "source": "APIModels.swift",
+    "line": 740
+  },
+  {
+    "symbol": "lock.shield",
+    "source": "HomeView.swift",
+    "line": 63
+  },
+  {
+    "symbol": "chevron.right",
+    "source": "HomeView.swift",
+    "line": 74
+  },
+  {
+    "symbol": "exclamationmark.circle",
+    "source": "HomeView.swift",
+    "line": 164
+  },
+  {
+    "symbol": "mappin",
+    "source": "HomeView.swift",
+    "line": 241
+  },
+  {
+    "symbol": "shippingbox",
+    "source": "HomeView.swift",
+    "line": 243
+  },
+  {
+    "symbol": "scalemass",
+    "source": "HomeView.swift",
+    "line": 244
+  },
+  {
+    "symbol": "cube.transparent",
+    "source": "HomeView.swift",
+    "line": 245
+  },
+  {
+    "symbol": "ferry",
+    "source": "HomeView.swift",
+    "line": 267
+  },
+  {
+    "symbol": "mappin",
+    "source": "HomeView.swift",
+    "line": 268
+  },
+  {
+    "symbol": "bell.fill",
+    "source": "HomeView.swift",
+    "line": 315
+  },
+  {
+    "symbol": "bell",
+    "source": "DesignSystem.swift",
+    "line": 491
+  },
+  {
+    "symbol": "chevron.left",
+    "source": "DesignSystem.swift",
+    "line": 579
+  },
+  {
+    "symbol": "calendar",
+    "source": "DesignSystem.swift",
+    "line": 817
+  },
+  {
+    "symbol": "chevron.up.chevron.down",
+    "source": "DesignSystem.swift",
+    "line": 933
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "DesignSystem.swift",
+    "line": 1126
+  },
+  {
+    "symbol": "chevron.up.chevron.down",
+    "source": "DesignSystem.swift",
+    "line": 1179
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "DesignSystem.swift",
+    "line": 1231
+  },
+  {
+    "symbol": "chevron.up.chevron.down",
+    "source": "DesignSystem.swift",
+    "line": 1280
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "DesignSystem.swift",
+    "line": 1342
+  },
+  {
+    "symbol": "list.clipboard",
+    "source": "OrderFormsView.swift",
+    "line": 82
+  },
+  {
+    "symbol": "magnifyingglass",
+    "source": "OrderFormsView.swift",
+    "line": 87
+  },
+  {
+    "symbol": "list.clipboard",
+    "source": "OrderFormsView.swift",
+    "line": 125
+  },
+  {
+    "symbol": "calendar",
+    "source": "OrderFormsView.swift",
+    "line": 156
+  },
+  {
+    "symbol": "shippingbox",
+    "source": "OrderFormsView.swift",
+    "line": 157
+  },
+  {
+    "symbol": "ferry",
+    "source": "OrderFormsView.swift",
+    "line": 159
+  },
+  {
+    "symbol": "hand.tap.fill",
+    "source": "OrderFormsView.swift",
+    "line": 175
+  },
+  {
+    "symbol": "shippingbox",
+    "source": "OrderFormsView.swift",
+    "line": 322
+  },
+  {
+    "symbol": "photo",
+    "source": "OrderFormsView.swift",
+    "line": 443
+  },
+  {
+    "symbol": "photo",
+    "source": "OrderFormsView.swift",
+    "line": 449
+  },
+  {
+    "symbol": "photo",
+    "source": "OrderFormsView.swift",
+    "line": 453
+  },
+  {
+    "symbol": "number",
+    "source": "OrderFormsView.swift",
+    "line": 490
+  },
+  {
+    "symbol": "ruler",
+    "source": "OrderFormsView.swift",
+    "line": 491
+  },
+  {
+    "symbol": "mail",
+    "source": "OrderFormsView.swift",
+    "line": 492
+  },
+  {
+    "symbol": "link",
+    "source": "OrderFormsView.swift",
+    "line": 516
+  },
+  {
+    "symbol": "checkmark",
+    "source": "OrderFormsView.swift",
+    "line": 526
+  },
+  {
+    "symbol": "xmark",
+    "source": "OrderFormsView.swift",
+    "line": 527
+  },
+  {
+    "symbol": "photo",
+    "source": "OrderFormsView.swift",
+    "line": 619
+  },
+  {
+    "symbol": "chevron.left",
+    "source": "AuthenticationView.swift",
+    "line": 139
+  },
+  {
+    "symbol": "chevron.left",
+    "source": "AuthenticationView.swift",
+    "line": 180
+  },
+  {
+    "symbol": "person.crop.circle.badge.checkmark",
+    "source": "AuthenticationView.swift",
+    "line": 374
+  },
+  {
+    "symbol": "exclamationmark.triangle.fill",
+    "source": "AuthenticationView.swift",
+    "line": 388
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "AuthenticationView.swift",
+    "line": 446
+  },
+  {
+    "symbol": "checkmark.seal.fill",
+    "source": "AuthenticationView.swift",
+    "line": 461
+  },
+  {
+    "symbol": "clock.fill",
+    "source": "AuthenticationView.swift",
+    "line": 494
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "AuthenticationView.swift",
+    "line": 682
+  },
+  {
+    "symbol": "doc.text.fill",
+    "source": "Models.swift",
+    "line": 624
+  },
+  {
+    "symbol": "shippingbox.fill",
+    "source": "Models.swift",
+    "line": 638
+  },
+  {
+    "symbol": "scalemass.fill",
+    "source": "Models.swift",
+    "line": 652
+  },
+  {
+    "symbol": "airplane",
+    "source": "Models.swift",
+    "line": 664
+  },
+  {
+    "symbol": "airplane",
+    "source": "Models.swift",
+    "line": 676
+  },
+  {
+    "symbol": "shippingbox.fill",
+    "source": "CargoView.swift",
+    "line": 88
+  },
+  {
+    "symbol": "magnifyingglass",
+    "source": "CargoView.swift",
+    "line": 92
+  },
+  {
+    "symbol": "shippingbox",
+    "source": "CargoView.swift",
+    "line": 110
+  },
+  {
+    "symbol": "mappin",
+    "source": "CargoView.swift",
+    "line": 154
+  },
+  {
+    "symbol": "shippingbox",
+    "source": "CargoView.swift",
+    "line": 155
+  },
+  {
+    "symbol": "scalemass",
+    "source": "CargoView.swift",
+    "line": 158
+  },
+  {
+    "symbol": "cube.transparent",
+    "source": "CargoView.swift",
+    "line": 159
+  },
+  {
+    "symbol": "shippingbox.fill",
+    "source": "CargoView.swift",
+    "line": 164
+  },
+  {
+    "symbol": "doc.text.fill",
+    "source": "CargoView.swift",
+    "line": 167
+  },
+  {
+    "symbol": "mappin.and.ellipse",
+    "source": "CargoView.swift",
+    "line": 181
+  },
+  {
+    "symbol": "info.circle",
+    "source": "CargoView.swift",
+    "line": 264
+  },
+  {
+    "symbol": "list.clipboard",
+    "source": "CargoView.swift",
+    "line": 278
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "CargoView.swift",
+    "line": 288
+  },
+  {
+    "symbol": "checkmark.circle.fill",
+    "source": "CargoView.swift",
+    "line": 301
+  },
+  {
+    "symbol": "number",
+    "source": "CargoView.swift",
+    "line": 392
+  },
+  {
+    "symbol": "mail",
+    "source": "CargoView.swift",
+    "line": 393
+  },
+  {
+    "symbol": "chevron.left",
+    "source": "NotificationsView.swift",
+    "line": 16
+  },
+  {
+    "symbol": "bell.slash",
+    "source": "NotificationsView.swift",
+    "line": 46
+  },
+  {
+    "symbol": "lock.shield",
+    "source": "ContentView.swift",
+    "line": 201
+  }
+]

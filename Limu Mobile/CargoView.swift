@@ -152,7 +152,7 @@ struct CargoView: View {
             }
             .refreshable { await appState.refreshCargo() }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private func costEstimate(for cargo: Cargo) -> CargoCostEstimate? {
@@ -263,7 +263,7 @@ private struct CargoDetailView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var overview: some View {
@@ -520,6 +520,6 @@ private struct PackageDetailView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 }

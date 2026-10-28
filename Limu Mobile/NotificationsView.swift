@@ -98,8 +98,8 @@ struct NotificationsView: View {
                 .refreshable { await reload() }
             }
         }
-        .background(LimuColors.cream.ignoresSafeArea())
-        .task { await reload() }
+        .background(LimuColors.pageBackground.ignoresSafeArea())
+        .task { await appState.refreshNotifications() }
     }
 
     private func reload() async {

@@ -117,6 +117,7 @@ struct ShipmentsView: View {
                         Text("Shipments containing your cargo")
                             .font(.limu(size: 12))
                             .foregroundStyle(LimuColors.secondary)
+                            .padding(.top, 2)
                     }
                     Spacer()
                     BrandCircleSymbol(systemName: "ferry.fill", diameter: 40, symbolSize: 17)
@@ -158,7 +159,7 @@ struct ShipmentsView: View {
                 await appState.refreshShipmentPriceList()
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var priceListEntry: some View {
@@ -345,7 +346,7 @@ private struct ShipmentPriceListView: View {
             }
             .refreshable { await appState.refreshShipmentPriceList(showError: true) }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
         .task {
             await appState.refreshShipmentPriceList(showError: true)
             if !categories.contains(category), let first = categories.first {
@@ -559,7 +560,7 @@ private struct ShipmentDetailView: View {
                 .padding(16)
             }
         }
-        .background(LimuColors.cream)
+        .background(LimuColors.pageBackground)
     }
 
     private var overview: some View {

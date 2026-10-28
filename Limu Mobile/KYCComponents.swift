@@ -152,7 +152,7 @@ private struct OptionPickerSheet: View {
                 }
                 .padding(.vertical, 8)
             }
-            .background(LimuColors.cream)
+            .background(LimuColors.pageBackground)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $search, prompt: "Search")
@@ -278,7 +278,7 @@ private struct MultiSelectSheet: View {
                 }
                 .padding(.vertical, 8)
             }
-            .background(LimuColors.cream)
+            .background(LimuColors.pageBackground)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $search, prompt: "Search")
