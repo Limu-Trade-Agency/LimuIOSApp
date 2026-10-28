@@ -332,7 +332,7 @@ final class AppState: ObservableObject {
         clearLocalState()
     }
 
-    /// Permanently deletes the signed-in client's account.
+    /// Deactivates the signed-in client's account (records are retained; re-registering reactivates it).
     ///
     /// Required by App Store Review Guideline 5.1.1(v): an app that lets people
     /// create an account has to let them start deleting it from inside the app.

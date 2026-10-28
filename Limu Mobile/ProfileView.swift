@@ -124,7 +124,7 @@ struct ProfileView: View {
                         actionRow(icon: "bell", title: "Notification Settings") { screen = .notifications }
                         actionRow(icon: "hand.raised", title: "Privacy Policy", external: true) { openURL(LimuLinks.privacyPolicy) }
                         actionRow(icon: "rectangle.portrait.and.arrow.right", title: "Sign Out", danger: true, action: onLogout)
-                        actionRow(icon: "trash", title: "Delete Account", danger: true) { screen = .deleteAccount }
+                        actionRow(icon: "trash", title: "Deactivate Account", danger: true) { screen = .deleteAccount }
                     }
                     Color.clear.frame(height: 24)
                 }
@@ -513,7 +513,7 @@ private struct DeleteAccountView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BackHeader(backTitle: "Profile", title: "Delete Account", onBack: onBack)
+            BackHeader(backTitle: "Profile", title: "Deactivate Account", onBack: onBack)
             ScrollView {
                 VStack(spacing: 14) {
                     warning
@@ -525,7 +525,7 @@ private struct DeleteAccountView: View {
                             secure: true
                         )
                         LimuTextField(
-                            label: "Type DELETE to confirm",
+                            label: "Type DELETE to deactivate",
                             placeholder: AppState.accountDeletionConfirmation,
                             text: $confirmation
                         )
@@ -543,18 +543,18 @@ private struct DeleteAccountView: View {
 
     private var warning: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("This cannot be undone", systemImage: "exclamationmark.triangle.fill")
+            Label("Your account will be deactivated", systemImage: "exclamationmark.triangle.fill")
                 .font(.limu(size: 14, weight: .bold))
                 .foregroundStyle(LimuColors.danger)
-            Text("Deleting your account permanently removes:")
+            Text("Deactivating your account:")
                 .font(.limu(size: 13))
                 .foregroundStyle(Color(hex: "374151"))
             VStack(alignment: .leading, spacing: 6) {
-                bullet("Your profile and KYC details")
-                bullet("Your cargo, shipment and order-form history in this app")
-                bullet("Your saved sign-in and notification settings on this device")
+                bullet("Signs you out and stops you using the app")
+                bullet("Keeps your profile, cargo, shipment, order-form and invoice records safe with Limu")
+                bullet("Clears your saved sign-in and notification settings on this device")
             }
-            Text("Records Limu Trade must keep for customs, tax or accounting purposes are retained as set out in our privacy policy. If you have an open consignment, speak to us before deleting.")
+            Text("Your records are retained as set out in our privacy policy. To use Limu again, register with the same email, confirm the code we send you and complete a new KYC; your original account is then restored. If you have an open consignment, speak to us before deactivating.")
                 .font(.limu(size: 11))
                 .foregroundStyle(LimuColors.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -587,7 +587,7 @@ private struct DeleteAccountView: View {
         } label: {
             HStack(spacing: 8) {
                 if appState.isBusy { ProgressView().tint(.white).controlSize(.small) }
-                Text(appState.isBusy ? "Deleting…" : "Delete My Account")
+                Text(appState.isBusy ? "Deactivating…" : "Deactivate My Account")
                     .font(.limu(size: 15, weight: .bold))
             }
             .frame(maxWidth: .infinity)

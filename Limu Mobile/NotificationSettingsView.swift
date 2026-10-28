@@ -6,7 +6,7 @@ struct NotificationPreferencesDTO: Codable, Equatable {
     struct Channels: Codable, Equatable {
         var push = true
         var email = false
-        var whatsapp = false
+        var whatsapp = true
     }
 
     struct Types: Codable, Equatable {

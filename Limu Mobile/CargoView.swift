@@ -271,7 +271,7 @@ private struct CargoDetailView: View {
             SectionCard("Cargo Summary") {
                 DetailRow(label: "Tracking #", value: cargo.id, monospaced: true)
                 DetailRow(label: "Location", value: cargo.location)
-                DetailRow(label: "Packages", value: "\(cargo.packages) (\(cargo.checkedPackages) checked)")
+                DetailRow(label: "Packages", value: "\(cargo.packages)")
                 DetailRow(label: "Weight", value: "\(cargo.weight.formatted()) kg")
                 DetailRow(label: "Volume", value: "\(cargo.volume.formatted()) CBM")
                 DetailRow(label: "Shipment", value: cargo.shipmentName)
