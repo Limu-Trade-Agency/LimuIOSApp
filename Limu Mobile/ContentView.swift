@@ -102,7 +102,6 @@ struct ContentView: View {
                     Tab("Shipments", systemImage: AppTab.shipments.icon, value: AppTab.shipments) {
                         ShipmentsHubView(segment: $shipmentsSegment)
                     }
-                    }
                     Tab("Order Forms", systemImage: AppTab.orderForms.icon, value: AppTab.orderForms) {
                         kycGated(feature: "Order Forms") { OrderFormsView() }
                     }
@@ -179,11 +178,31 @@ struct ContentView: View {
     private func handleRemoteNotificationTap(_ notification: Notification) {
         Task { await appState.refreshAfterRemoteNotification() }
         guard appState.isAuthenticated else { return }
-        if let destination = Self.notificationDestination(from: notification) {
+        if let link = Self.notificationLink(from: notification) {
+            appState.pendingLink = link
+            navigate(link.tab)
+        } else if let destination = Self.notificationDestination(from: notification) {
             navigate(destination)
         } else {
             showingNotifications = true
         }
+    }
+
+    /// The push payload carries `objectType` and `objectId`; together they name the exact record to open.
+    private static func notificationLink(from notification: Notification) -> DeepLink? {
+        guard let userInfo = notification.userInfo,
+              let objectType = userInfo["objectType"] as? String else { return nil }
+        let objectID: Int?
+        if let number = userInfo["objectId"] as? Int {
+            objectID = number
+        } else if let text = userInfo["objectId"] as? String {
+            objectID = Int(text)
+        } else if let number = userInfo["objectId"] as? NSNumber {
+            objectID = number.intValue
+        } else {
+            objectID = nil
+        }
+        return DeepLink(objectType: objectType, objectID: objectID)
     }
 
     private static func notificationDestination(from notification: Notification) -> AppTab? {

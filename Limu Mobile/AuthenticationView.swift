@@ -440,7 +440,6 @@ struct AuthenticationView: View {
                     verificationPhone = (registration.phone ?? "").isEmpty ? phone : (registration.phone ?? phone)
                     verificationCode = ""
                     verificationResent = false
-                    verificationEmailSent = verificationChannel == "sms" ? (registration.smsSent ?? true) : registration.emailSent
                     mode = .verifyEmail
                 }
             }

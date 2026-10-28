@@ -30,7 +30,6 @@ struct APIError: LocalizedError {
         case "ACCOUNT_TEMPORARILY_LOCKED":
             return "Too many failed sign-in attempts. Please wait a few minutes and try again."
         case "ACCOUNT_INACTIVE":
-        case "ACCOUNT_INACTIVE":
             return "This account has been deactivated. To use it again, register with the same phone number or email and enter the code we send you."
         case "RATE_LIMITED":
             return "Too many attempts. Please wait a few minutes before trying again."
@@ -194,6 +193,37 @@ final class APIClient {
             "orderforms/show.php",
             query: [URLQueryItem(name: "id", value: String(id))]
         )
+    }
+
+    func uploadPaymentProof(invoiceID: Int, amount: Double, transactionID: String, notes: String, fileURL: URL) async throws -> PaymentDTO {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        func append(_ value: String) { body.append(Data(value.utf8)) }
+        func field(_ name: String, _ value: String) {
+            append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n")
+        }
+        field("invoiceId", String(invoiceID))
+        field("amount", String(amount))
+        if !transactionID.isEmpty { field("transactionId", transactionID) }
+        if !notes.isEmpty { field("notes", notes) }
+
+        let scoped = fileURL.startAccessingSecurityScopedResource()
+        defer { if scoped { fileURL.stopAccessingSecurityScopedResource() } }
+        let fileData = try Data(contentsOf: fileURL)
+        let ext = fileURL.pathExtension.lowercased()
+        let mime = ext == "pdf" ? "application/pdf" : ext == "png" ? "image/png" : "image/jpeg"
+        append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\nContent-Type: \(mime)\r\n\r\n")
+        body.append(fileData)
+        append("\r\n--\(boundary)--\r\n")
+
+        let data = try await perform(
+            path: "payments/submit-proof.php",
+            method: "POST",
+            bodyData: body,
+            contentType: "multipart/form-data; boundary=\(boundary)",
+            authenticated: true
+        )
+        return try decodeData(data)
     }
 
     private func perform(

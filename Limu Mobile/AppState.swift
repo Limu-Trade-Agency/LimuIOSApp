@@ -10,6 +10,53 @@ enum WhatsAppVerificationResult {
     case failed
 }
 
+/// The exact record a notification refers to. Tapping a notification used to open only the tab (so a client
+/// with many shipments had to hunt for the one that changed); now the owning screen opens the record itself.
+enum DeepLink: Equatable {
+    case shipment(Int)
+    case cargo(Int)
+    case invoice(Int)
+    case orderForm(Int)
+    case kycChange
+
+    /// The tab that owns the record.
+    var tab: AppTab {
+        switch self {
+        case .shipment: .shipments
+        case .cargo: .cargo
+        case .invoice: .invoices
+        case .orderForm: .orderForms
+        case .kycChange: .profile
+        }
+    }
+
+    init?(objectType: String, objectID: Int?) {
+        let kind = objectType
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "-", with: "_")
+            .replacingOccurrences(of: " ", with: "_")
+        switch kind {
+        case "kyc_change_request", "kyc":
+            self = .kycChange
+        case "cargo":
+            guard let objectID, objectID > 0 else { return nil }
+            self = .cargo(objectID)
+        case "shipment", "shipment_update", "shipments":
+            guard let objectID, objectID > 0 else { return nil }
+            self = .shipment(objectID)
+        case "invoice", "payment":
+            guard let objectID, objectID > 0 else { return nil }
+            self = .invoice(objectID)
+        case "order_form", "orderform", "order":
+            guard let objectID, objectID > 0 else { return nil }
+            self = .orderForm(objectID)
+        default:
+            return nil
+        }
+    }
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var isAuthenticated = false
@@ -21,9 +68,13 @@ final class AppState: ObservableObject {
     @Published var dashboard: DashboardDTO?
     @Published var cargo: [Cargo] = []
     @Published var shipments: [Shipment] = []
+    @Published var invoices: [Invoice] = []
     @Published var orderForms: [OrderForm] = []
+    /// The record a tapped notification points at. The screen that owns it opens it and then clears it.
+    @Published var pendingLink: DeepLink?
     @Published var shipmentPriceList = MockData.shipmentPriceList
     @Published var notifications: [AppNotification] = []
+    @Published var archivedNotifications: [AppNotification] = []
     @Published private var demoKYCCompleted = false
 
     private let api = APIClient.shared
@@ -43,6 +94,7 @@ final class AppState: ObservableObject {
             isCheckingSession = false
             cargo = MockData.cargo
             shipments = MockData.shipments
+            invoices = MockData.invoices
             orderForms = MockData.orderForms
             let demoNotifications = MockData.notifications
             notifications = demoKYCCompleted
@@ -479,13 +531,8 @@ final class AppState: ObservableObject {
         await refreshDashboard()
         await refreshCargo()
         await refreshShipments()
-        await refreshDashboard()
-        await refreshCargo()
-        await refreshShipments()
         await refreshInvoices()
         await refreshShipmentPriceList()
-        await refreshOrderForms()
-        await refreshNotifications()
         await refreshOrderForms()
         await refreshNotifications()
     }
@@ -505,6 +552,12 @@ final class AppState: ObservableObject {
         let dto: ShipmentDTO = try await api.get("shipments/show.php", query: [URLQueryItem(name: "id", value: String(id))])
         let shipment = dto.model
         return (shipment, (dto.updates ?? []).map { $0.model(shipmentID: shipment.id, location: shipment.location) }, (dto.cargo ?? []).map(\.model))
+    }
+
+    func fetchInvoiceDetail(_ id: Int) async throws -> Invoice {
+        if demoMode { return invoices.first(where: { $0.apiID == id || id == 0 }) ?? MockData.invoices[0] }
+        let dto: InvoiceDTO = try await api.get("invoices/show.php", query: [URLQueryItem(name: "id", value: String(id))])
+        return dto.model
     }
 
     func fetchOrderFormDetail(_ id: Int) async throws -> OrderForm {
@@ -634,6 +687,11 @@ final class AppState: ObservableObject {
         return success ? updatedOrder : nil
     }
 
+    /// Where a notification should take the user, or nil when it only names a tab.
+    func deepLink(for notification: AppNotification) -> DeepLink? {
+        DeepLink(objectType: notification.objectType, objectID: notification.objectID)
+    }
+
     func markRead(_ notification: AppNotification) async {
         guard notification.isUnread else { return }
         if !demoMode { try? await api.send("notifications/read.php", method: "PATCH", body: ["id": notification.id]) }
@@ -643,6 +701,29 @@ final class AppState: ObservableObject {
     func markAllRead() async {
         if !demoMode { try? await api.send("notifications/read-all.php") }
         for index in notifications.indices { notifications[index].isUnread = false }
+    }
+
+    /// Notifications the client has filed away. The inbox keeps the rest.
+    func refreshArchivedNotifications() async {
+        guard liveSession else { return }
+        let query = [URLQueryItem(name: "view", value: "archived"), URLQueryItem(name: "limit", value: "100")]
+        if let notificationDTOs: [NotificationDTO] = try? await api.get("notifications/index.php", query: query) {
+            archivedNotifications = notificationDTOs.map(\.model)
+        }
+    }
+
+    /// Archive, delete or restore one notification (`action` is "archive", "delete" or "restore").
+    func changeNotification(_ notification: AppNotification, action: String) async {
+        if !demoMode {
+            try? await api.send("notifications/archive.php", body: ["id": notification.id, "action": action])
+            await refreshNotifications()
+            await refreshArchivedNotifications()
+            return
+        }
+        notifications.removeAll { $0.id == notification.id }
+        archivedNotifications.removeAll { $0.id == notification.id }
+        if action == "archive" { archivedNotifications.append(notification) }
+        if action == "restore" { notifications.append(notification) }
     }
 
     // MARK: - Notification preferences
@@ -741,6 +822,12 @@ final class AppState: ObservableObject {
 
     func loadKYC() async throws -> KYCRecordDTO { try await api.get("kyc/index.php") }
 
+    /// The client has read a declined change request, so it stops being shown.
+    func markKYCDeclineSeen() async {
+        guard liveSession else { return }
+        try? await api.send("kyc/change-requests-seen.php")
+    }
+
     /// The shared KYC choices. Falls back to the bundled copy so the form still works offline.
     func loadKYCOptions() async -> KYCOptionsDTO {
         if demoMode { return KYCOptionsCatalog.fallback }
@@ -802,6 +889,13 @@ final class AppState: ObservableObject {
             if let dto = try? await api.getOrderForm(id: id) {
                 upsertOrderForm(dto.model)
             }
+        }
+    }
+
+    func uploadPayment(invoiceID: Int, amount: Double, transactionID: String, notes: String, fileURL: URL) async -> Bool {
+        await runBusy {
+            let _: PaymentDTO = try await api.uploadPaymentProof(invoiceID: invoiceID, amount: amount, transactionID: transactionID, notes: notes, fileURL: fileURL)
+            try await refreshAll()
         }
     }
 

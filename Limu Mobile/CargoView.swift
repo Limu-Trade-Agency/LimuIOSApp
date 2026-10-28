@@ -59,6 +59,25 @@ struct CargoView: View {
                 }
         }
         .task { await appState.refreshCargo() }
+        .task(id: appState.pendingLink) { await openPendingLink() }
+    }
+
+    /// A tapped notification names one cargo: open it directly instead of leaving the user on the list.
+    private func openPendingLink() async {
+        guard case .cargo(let id)? = appState.pendingLink else { return }
+        appState.pendingLink = nil
+        packages = []
+        timeline = []
+        loadingDetail = true
+        defer { loadingDetail = false }
+        do {
+            let detail = try await appState.fetchCargoDetail(id)
+            selectedCargo = detail.0
+            packages = detail.1
+            timeline = detail.2
+        } catch {
+            appState.errorMessage = error.localizedDescription
+        }
     }
 
     private func openCargo(_ cargo: Cargo) {
@@ -345,6 +364,13 @@ private struct CargoDetailView: View {
     }
 
     private var timeline: some View {
+        VStack(spacing: 12) {
+            if !cargo.checklist.isEmpty { checklistCard }
+            timelineLog
+        }
+    }
+
+    private var timelineLog: some View {
         Group {
             if loadingDetail && timelineEvents.isEmpty {
                 loadingCard
@@ -369,14 +395,36 @@ private struct CargoDetailView: View {
                             }
                             .fixedSize(horizontal: false, vertical: true)
                         }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(event.title).font(.limu(size: 13, weight: .bold)).foregroundStyle(LimuColors.ink)
-                            Text(event.description).font(.limu(size: 12)).foregroundStyle(LimuColors.secondary)
-                            Text(event.timestamp).font(.limu(size: 11)).foregroundStyle(LimuColors.muted)
-                        }
-                        Spacer()
                     }
                 }
+            }
+        }
+    }
+
+    /// The owner's checklist. Cargo is independent of the shipment's stages: it has its own steps (created,
+    /// received, added to a shipment, loaded, dispatched, ready, collected) and picks up the shipment updates
+    /// that matter to it.
+    private var checklistCard: some View {
+        SectionCard("Cargo Checklist") {
+            ForEach(Array(cargo.checklist.enumerated()), id: \.element.id) { index, step in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: step.done ? "checkmark.circle.fill" : "circle")
+                        .font(.limu(size: 18))
+                        .foregroundStyle(step.done ? LimuColors.success : LimuColors.divider)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(step.title)
+                            .font(.limu(size: 13, weight: .bold))
+                            .foregroundStyle(step.done ? LimuColors.ink : LimuColors.muted)
+                        if let detail = step.detail, !detail.isEmpty {
+                            Text(detail).font(.limu(size: 12)).foregroundStyle(LimuColors.secondary)
+                        }
+                        if step.done, let timestamp = step.timestamp, !timestamp.isEmpty {
+                            Text(timestamp).font(.limu(size: 11)).foregroundStyle(LimuColors.muted)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.bottom, index < cargo.checklist.count - 1 ? 12 : 0)
             }
         }
     }

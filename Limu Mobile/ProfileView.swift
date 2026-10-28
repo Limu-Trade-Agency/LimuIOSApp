@@ -26,6 +26,12 @@ struct ProfileView: View {
             }
         }
         .onAppear(perform: openKYCIfRequested)
+        .task(id: appState.pendingLink) {
+            if appState.pendingLink == .kycChange {
+                appState.pendingLink = nil
+                screen = .kyc
+            }
+        }
         .task { await appState.refreshDashboard() }
         .onChange(of: shouldOpenKYC) { _, requested in
             if requested { openKYCIfRequested() }
@@ -66,7 +72,6 @@ struct ProfileView: View {
                         }
                     }
                     SectionCard("Personal Details") {
-                    SectionCard("Personal Details") {
                         DetailRow(label: "Full Name", value: display(appState.profile?.fullName))
                         DetailRow(label: "Phone", value: phoneText)
                         DetailRow(label: "Email", value: display(appState.profile?.email))
@@ -97,14 +102,6 @@ struct ProfileView: View {
                             DetailRow(label: "Interests", value: list(appState.profile?.interests))
                         }
                     }
-                        }
-                    }
-                    SectionCard("Trading Details") {
-                        DetailRow(label: "Trade Intent", value: displayValue(appState.profile?.tradeIntent))
-                        DetailRow(label: "Goods Categories", value: displayValue(appState.profile?.goodsCategories?.joined(separator: ", ")))
-                        DetailRow(label: "Service Categories", value: displayValue(appState.profile?.serviceCategories?.joined(separator: ", ")))
-                        DetailRow(label: "Notes", value: displayValue(appState.profile?.kycNotes))
-                    }
                     SectionCard("Verification") {
                         HStack {
                             Text("Status").font(.limu(size: 13)).foregroundStyle(Color(hex: "374151"))
@@ -121,7 +118,7 @@ struct ProfileView: View {
                             .buttonStyle(.plain).padding(.top, 10)
                     }
                     LimuCard(padding: 0) {
-                        actionRow(icon: "pencil", title: "Edit Client Profile", action: openProfileEditor)
+                        actionRow(icon: "pencil", title: "Edit Profile") { screen = .edit }
                         actionRow(icon: "lock", title: "Change Password") { screen = .password }
                         actionRow(icon: "bell", title: "Notification Settings") { screen = .notifications }
                         actionRow(icon: "hand.raised", title: "Privacy Policy", external: true) { openURL(LimuLinks.privacyPolicy) }
@@ -170,19 +167,8 @@ struct ProfileView: View {
 
     private func openKYCIfRequested() {
         guard shouldOpenKYC else { return }
-        openProfileEditor()
+        screen = .kyc
         shouldOpenKYC = false
-    }
-
-    private func openProfileEditor() {
-        kycStep = 0
-        kycCompleted = false
-        screen = .clientProfile
-    }
-
-    private func displayValue(_ value: String?) -> String {
-        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "—" }
-        return value
     }
 
     private func statCard(icon: String, value: String, label: String) -> some View {
@@ -371,7 +357,6 @@ private struct EditProfileView: View {
             values["interests"] = interests
         }
         return values
-    }
     }
 }
 

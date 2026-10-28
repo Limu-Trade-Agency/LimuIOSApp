@@ -659,15 +659,15 @@ struct StatusBadge: View {
         switch status {
         case "Current":
             (LimuColors.copperWash, LimuColors.copper, LimuColors.orange)
-        case "Active", "In Warehouse", "In Transit", "Upcoming", "Departed", "Draft":
+        case "Active", "In Warehouse", "In Transit", "Upcoming", "Departed", "Draft", "In progress", "In Progress":
             (Color(hex: "EFF6FF"), Color(hex: "1D4ED8"), Color(hex: "3B82F6"))
         case "Ready for Collection", "Paid", "Approved", "Completed", "Purchased", "Item Approved":
             (LimuColors.successWash, LimuColors.success, Color(hex: "22C55E"))
         case "Loading":
             (Color(hex: "FFF7ED"), Color(hex: "C2410C"), Color(hex: "F97316"))
-        case "Payment Pending", "Partially Paid", "Pending", "Pending Payment", "Pending Purchase":
+        case "Payment Pending", "Partially Paid", "Pending", "Pending Payment", "Awaiting Payment", "Pending Purchase":
             (Color(hex: "FFFBEB"), LimuColors.warning, Color(hex: "F59E0B"))
-        case "Not Paid", "Declined", "Not Started", "Dormant", "Item Declined":
+        case "Not Paid", "Declined", "Not Started", "Dormant", "Item Declined", "Delayed", "Rejected":
             (LimuColors.dangerWash, LimuColors.danger, Color(hex: "EF4444"))
         case "Pending Review", "Client Review", "Supervisor Review":
             (Color(hex: "F5F3FF"), Color(hex: "6D28D9"), Color(hex: "8B5CF6"))
@@ -1354,15 +1354,15 @@ struct SegmentedTabs: View {
 /// free function so cards outside `StatusBadge` can accent themselves by status too.
 func statusAccentColor(_ status: String) -> Color {
     switch status {
-    case "Active", "In Warehouse", "In Transit", "Upcoming", "Departed", "Draft":
+    case "Active", "In Warehouse", "In Transit", "Upcoming", "Departed", "Draft", "In progress", "In Progress":
         return Color(hex: "3B82F6")
     case "Ready for Collection", "Paid", "Approved", "Completed", "Purchased", "Item Approved":
         return Color(hex: "22C55E")
     case "Loading":
         return Color(hex: "F97316")
-    case "Payment Pending", "Partially Paid", "Pending", "Pending Payment", "Pending Purchase":
+    case "Payment Pending", "Partially Paid", "Pending", "Pending Payment", "Awaiting Payment", "Pending Purchase":
         return Color(hex: "F59E0B")
-    case "Not Paid", "Declined", "Not Started", "Dormant", "Item Declined":
+    case "Not Paid", "Declined", "Not Started", "Dormant", "Item Declined", "Delayed", "Rejected":
         return Color(hex: "EF4444")
     case "Pending Review", "Client Review", "Supervisor Review":
         return Color(hex: "8B5CF6")

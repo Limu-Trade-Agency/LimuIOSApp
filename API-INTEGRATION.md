@@ -53,3 +53,12 @@ implemented in the portal repository but **not yet deployed**. Contract and roll
 ## Local backend correction
 
 V4 public URLs are now mount-aware. Under XAMPP, uploaded proof URLs resolve beneath `http://localhost/limu/uploads/...` rather than the incorrect `/portal/uploads/...` path. The OpenAPI localhost server entry was updated to `/limu/Api/v4/client`.
+
+## 21 Oct 2026 review changes (portal API fields the app now reads)
+
+- `shipments/index.php` and `shipments/show.php`: `shipmentNumber`, `shipmentDate`, `currentStage` (name, status, location, estimated completion, elapsed vs estimated minutes, progress). `show.php` adds `stages[]`, `stageUpdates[]`, `plan` (route, from/to, estimated loading, arrival and collection dates), `cargoReferences[]` and `history` (average time per stage on previous shipments of the same mode, estimate accuracy). The shipment number leads and cargo hangs off it, so clients with many cargoes see one number.
+- `cargo/show.php` and `cargo/timeline.php`: `checklist[]` (created, received, added to shipment, loaded, dispatched, ready, collected). Cargo is not a stage of the shipment.
+- `invoices/*`: `invoiceType` (`shipping`, `customs_clearance`, `order_form`), `typeLabel`, `title`, `attachedTo`, `shareUrl`. Customs Clearance invoices belong to the shipment and carry no cargo/bus number. `shareUrl` is the link behind Download / Share Invoice.
+- `orderforms/index.php`: `legend[]` explains each status. "Pending payment" is now "Awaiting Payment" and is only reached after the supervisor approves; the invoice appears at that point, not when the client finishes review.
+- Notifications carry `objectType` + `objectId` (`cargo`, `shipment`, `invoice`, `orderForm`/`order_form`, `kyc_change_request`). Tapping one opens that record (`DeepLink` in `AppState.swift`).
+- `kyc/change-requests.php`: each request has `comments[]` from staff (Approve / Comment / Decline); a declined request has status `Rejected`.

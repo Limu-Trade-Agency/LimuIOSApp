@@ -7,8 +7,9 @@ struct OrderFormsView: View {
     @State private var loadingDetail = false
     @State private var filter = "All"
     @State private var search = ""
+    @State private var showingLegend = false
 
-    private let filters = ["All", "Draft", "Client Review", "Pending Payment", "Pending Purchase", "Purchased", "Dormant"]
+    private let filters = ["All", "Draft", "Client Review", "Supervisor Review", "Awaiting Payment", "Pending Purchase", "Purchased", "Dormant"]
 
     private func matchesFilter(_ orderForm: OrderForm, filter: String) -> Bool {
         filter == "All" || orderForm.status.caseInsensitiveCompare(filter) == .orderedSame
@@ -50,6 +51,21 @@ struct OrderFormsView: View {
         }
         .background(LimuColors.cream)
         .task { await appState.refreshOrderForms() }
+        .task(id: appState.pendingLink) { await openPendingLink() }
+        .sheet(isPresented: $showingLegend) { OrderFormStatusLegendSheet() }
+    }
+
+    /// A tapped order-form notification names one order form: open it directly, not just the list.
+    private func openPendingLink() async {
+        guard case .orderForm(let id)? = appState.pendingLink else { return }
+        appState.pendingLink = nil
+        loadingDetail = true
+        defer { loadingDetail = false }
+        do {
+            selectedOrderForm = try await appState.fetchOrderFormDetail(id)
+        } catch {
+            appState.errorMessage = error.localizedDescription
+        }
     }
 
     private func openOrderForm(_ orderForm: OrderForm) {
@@ -79,6 +95,13 @@ struct OrderFormsView: View {
                             .foregroundStyle(LimuColors.secondary)
                     }
                     Spacer()
+                    Button { showingLegend = true } label: {
+                        Image(systemName: "info.circle")
+                            .font(.limu(size: 20))
+                            .foregroundStyle(LimuColors.copper)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("What the statuses mean")
                     GradientIconTile(systemName: "list.clipboard", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 40, symbolSize: 17)
                 }
                 .padding(.bottom, 12)
@@ -241,6 +264,24 @@ private struct OrderFormDetailView: View {
 
     private var overview: some View {
         VStack(spacing: 12) {
+            if let meaning = OrderFormStatusLegend.entry(for: orderForm.status) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("WHAT \(orderForm.status.uppercased()) MEANS")
+                            .font(.limu(size: 11, weight: .bold)).tracking(0.6)
+                            .foregroundStyle(meaning.actionNeeded ? LimuColors.warning : LimuColors.muted)
+                        Spacer()
+                        if meaning.actionNeeded {
+                            Text("Action needed").font(.limu(size: 10, weight: .bold)).foregroundStyle(LimuColors.warning)
+                        }
+                    }
+                    Text(meaning.meaning).font(.limu(size: 12)).foregroundStyle(LimuColors.secondary).lineSpacing(3)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(meaning.actionNeeded ? Color(hex: "FFFBEB") : LimuColors.copperWash)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
             LimuCard {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -643,5 +684,69 @@ private struct ImagePreviewSheet: View {
 private extension String {
     func ifEmpty(_ fallback: String) -> String {
         trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? fallback : self
+    }
+}
+
+/// What each order form status means, so a client is never left guessing why an order is "stuck".
+/// Mirrors the legend the API serves (`legend` on `orderforms/index.php`).
+enum OrderFormStatusLegend {
+    struct Entry: Identifiable {
+        var id: String { status }
+        let status: String
+        let meaning: String
+        let actionNeeded: Bool
+    }
+
+    static let entries: [Entry] = [
+        Entry(status: "Draft", meaning: "Limu is preparing your order form. Nothing is needed from you yet.", actionNeeded: false),
+        Entry(status: "Client Review", meaning: "Please check the items and approve or decline each one, then complete your review.", actionNeeded: true),
+        Entry(status: "Supervisor Review", meaning: "You have finished your review. A Limu supervisor is checking the order. You do not need to pay yet.", actionNeeded: false),
+        Entry(status: "Awaiting Payment", meaning: "The supervisor has approved your order. Your invoice is ready; pay it and upload your proof of payment.", actionNeeded: true),
+        Entry(status: "Pending Purchase", meaning: "Payment is confirmed. Limu is buying your items.", actionNeeded: false),
+        Entry(status: "Purchased", meaning: "Your items have been bought.", actionNeeded: false),
+        Entry(status: "Dormant", meaning: "The order is on hold. Contact your Limu representative to continue.", actionNeeded: false)
+    ]
+
+    static func entry(for status: String) -> Entry? {
+        let normalized = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let aliased = normalized == "pending payment" ? "awaiting payment" : normalized
+        return entries.first { $0.status.lowercased() == aliased }
+    }
+}
+
+struct OrderFormStatusLegendSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 10) {
+                    ForEach(OrderFormStatusLegend.entries) { entry in
+                        LimuCard(padding: 14) {
+                            HStack(alignment: .top, spacing: 10) {
+                                StatusBadge(status: entry.status)
+                                Spacer(minLength: 4)
+                                if entry.actionNeeded {
+                                    Text("Action needed").font(.limu(size: 10, weight: .bold)).foregroundStyle(LimuColors.warning)
+                                }
+                            }
+                            Text(entry.meaning)
+                                .font(.limu(size: 12))
+                                .foregroundStyle(LimuColors.secondary)
+                                .lineSpacing(3)
+                                .padding(.top, 8)
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            .background(LimuColors.cream)
+            .navigationTitle("Order form statuses")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+        }
+        .presentationDetents([.large])
     }
 }

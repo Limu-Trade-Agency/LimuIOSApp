@@ -434,12 +434,16 @@ struct KYCSummaryView: View {
     let onRequestChange: () -> Void
 
     @EnvironmentObject private var appState: AppState
+    @State private var declineAcknowledged = false
 
     var body: some View {
         VStack(spacing: 0) {
             BackHeader(backTitle: "Profile", title: "KYC Details", subtitle: "Verified record", status: "Completed", onBack: onBack)
             ScrollView {
                 VStack(spacing: 12) {
+                    if let declined = record?.declinedChangeRequest, !declineAcknowledged {
+                        declinedBanner(declined)
+                    }
                     if let pending = record?.pendingChangeRequest, pending.status == "Pending" {
                         pendingBanner(pending)
                     }
@@ -500,6 +504,34 @@ struct KYCSummaryView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
+    /// Shown until the client taps "Got it", so the reason for the decline is not missed.
+    private func declinedBanner(_ declined: DeclinedChangeRequestDTO) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("KYC change not approved", systemImage: "xmark.octagon.fill")
+                .font(.limu(size: 13, weight: .bold))
+                .foregroundStyle(LimuColors.danger)
+            Text(declined.reason.isEmpty ? "No reason was given." : declined.reason)
+                .font(.limu(size: 12))
+                .foregroundStyle(LimuColors.ink)
+                .lineSpacing(2)
+            Button {
+                declineAcknowledged = true
+                Task { await appState.markKYCDeclineSeen() }
+            } label: {
+                Text("Got it")
+                    .font(.limu(size: 12, weight: .bold))
+                    .foregroundStyle(LimuColors.copper)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(LimuColors.dangerWash)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay { RoundedRectangle(cornerRadius: 12).stroke(LimuColors.danger.opacity(0.3)) }
+    }
+
     private func pendingBanner(_ request: KYCChangeRequestDTO) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -511,6 +543,20 @@ struct KYCSummaryView: View {
                     Text("\(KYCChangeRequestView.label(for: key)): \(change.from.isEmpty ? "—" : change.from) → \(change.to.isEmpty ? "—" : change.to)")
                         .font(.limu(size: 12)).foregroundStyle(Color(hex: "374151"))
                 }
+            }
+            ForEach(request.comments ?? []) { comment in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(comment.author) asked").font(.limu(size: 11, weight: .bold)).foregroundStyle(LimuColors.copper)
+                    Text(comment.message).font(.limu(size: 12)).foregroundStyle(Color(hex: "374151"))
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(LimuColors.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+            if !(request.comments ?? []).isEmpty {
+                Text("Reply by contacting Limu support or file a new request with the corrected details.")
+                    .font(.limu(size: 11)).foregroundStyle(LimuColors.muted)
             }
         }
         .padding(14)

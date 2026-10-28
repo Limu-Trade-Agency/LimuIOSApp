@@ -34,6 +34,7 @@ struct Cargo: Identifiable, Hashable {
     let collectionLocation: String?
     let notes: String?
     let checkedPackages: Int
+    let checklist: [CargoChecklistStep]
 
     init(
         apiID: Int = 0,
@@ -50,7 +51,8 @@ struct Cargo: Identifiable, Hashable {
         readyForCollection: Bool,
         collectionLocation: String?,
         notes: String?,
-        checkedPackages: Int = 0
+        checkedPackages: Int = 0,
+        checklist: [CargoChecklistStep] = []
     ) {
         self.apiID = apiID
         self.id = id
@@ -67,6 +69,7 @@ struct Cargo: Identifiable, Hashable {
         self.collectionLocation = collectionLocation
         self.notes = notes
         self.checkedPackages = checkedPackages
+        self.checklist = checklist
     }
 
     /// True once real charges exist (invoice issued/settled), at which point
@@ -138,6 +141,15 @@ struct Shipment: Identifiable, Hashable {
     let cargoCount: Int
     let packageCount: Int
     let progress: Double
+    /// Clients with many cargoes found many tracking numbers confusing: the shipment number and date lead,
+    /// and the cargo it contains hang off it.
+    let number: String
+    let currentStage: ShipmentStageSnippet?
+    let stages: [ShipmentStage]
+    let stageUpdates: [ShipmentStageUpdate]
+    let plan: ShipmentPlan?
+    let cargoReferences: [String]
+    let history: ShipmentHistory?
 
     init(
         apiID: Int = 0,
@@ -150,11 +162,25 @@ struct Shipment: Identifiable, Hashable {
         location: String,
         cargoCount: Int,
         packageCount: Int,
-        progress: Double = 0
+        progress: Double = 0,
+        number: String? = nil,
+        currentStage: ShipmentStageSnippet? = nil,
+        stages: [ShipmentStage] = [],
+        stageUpdates: [ShipmentStageUpdate] = [],
+        plan: ShipmentPlan? = nil,
+        cargoReferences: [String] = [],
+        history: ShipmentHistory? = nil
     ) {
         self.apiID = apiID
         self.id = id
         self.name = name
+        self.number = number ?? name
+        self.currentStage = currentStage
+        self.stages = stages
+        self.stageUpdates = stageUpdates
+        self.plan = plan
+        self.cargoReferences = cargoReferences
+        self.history = history
         self.status = status
         self.mode = mode
         self.departure = LimuDateFormatting.display(departure)
@@ -565,6 +591,7 @@ struct Payment: Identifiable, Hashable {
         currency: String = LimuCurrency.defaultCode
     ) {
         self.id = id
+        self.amount = amount
         self.status = status
         self.date = date
         self.transactionID = transactionID
@@ -589,6 +616,11 @@ struct Invoice: Identifiable, Hashable {
     let documentURL: URL?
     /// Set when the invoice was generated from an approved order form.
     let orderFormNumber: String?
+    /// "Shipping", "Customs Clearance" or "Order Form"; shown on the invoice so nobody has to guess.
+    let typeLabel: String
+    let isCustoms: Bool
+    /// A link the client can share (for example on WhatsApp) to open the invoice without signing in.
+    let shareURL: URL?
 
     init(
         apiID: Int = 0,
@@ -605,11 +637,15 @@ struct Invoice: Identifiable, Hashable {
         items: [InvoiceItem],
         payments: [Payment],
         documentURL: URL? = nil,
-        orderFormNumber: String? = nil
+        orderFormNumber: String? = nil,
+        typeLabel: String = "Shipping",
+        isCustoms: Bool = false,
+        shareURL: URL? = nil
     ) {
         self.apiID = apiID
         self.id = id
         self.status = status
+        self.date = date
         self.total = total
         self.balance = balance
         self.discount = discount
@@ -621,6 +657,9 @@ struct Invoice: Identifiable, Hashable {
         self.payments = payments
         self.documentURL = documentURL
         self.orderFormNumber = orderFormNumber
+        self.typeLabel = typeLabel
+        self.isCustoms = isCustoms
+        self.shareURL = shareURL
     }
 }
 struct AppNotification: Identifiable, Hashable {
@@ -632,8 +671,11 @@ struct AppNotification: Identifiable, Hashable {
     var isUnread: Bool
     let destination: AppTab
     let objectID: Int?
+    /// "cargo", "shipment", "invoice", "order_form" or "kyc_change_request": with `objectID` this is the exact
+    /// record the notification is about, so tapping it opens that record rather than a list.
+    let objectType: String
 
-    init(id: String, title: String, message: String, category: String, timestamp: String, isUnread: Bool, destination: AppTab, objectID: Int? = nil) {
+    init(id: String, title: String, message: String, category: String, timestamp: String, isUnread: Bool, destination: AppTab, objectID: Int? = nil, objectType: String = "") {
         self.id = id
         self.title = title
         self.message = message
@@ -642,6 +684,7 @@ struct AppNotification: Identifiable, Hashable {
         self.isUnread = isUnread
         self.destination = destination
         self.objectID = objectID
+        self.objectType = objectType
     }
 }
 
@@ -800,7 +843,7 @@ enum MockData {
                 OrderFormTimelineStep(id: "draft", label: "Draft", reached: true, active: false, note: "Order captured by sourcing team.", changedBy: "Limu Procurement", createdAt: "2026-06-20 10:20"),
                 OrderFormTimelineStep(id: "client-review", label: "Client Review", reached: true, active: true, note: "Approve or decline items before purchase.", changedBy: "Client", createdAt: "2026-06-20 12:05"),
                 OrderFormTimelineStep(id: "supervisor-review", label: "Supervisor Review", reached: false, active: false, note: "Not started yet", changedBy: "", createdAt: "—"),
-                OrderFormTimelineStep(id: "pending-payment", label: "Pending Payment", reached: false, active: false, note: "Not started yet", changedBy: "", createdAt: "—"),
+                OrderFormTimelineStep(id: "awaiting-payment", label: "Awaiting Payment", reached: false, active: false, note: "Not started yet", changedBy: "", createdAt: "—"),
                 OrderFormTimelineStep(id: "pending-purchase", label: "Pending Purchase", reached: false, active: false, note: "Not started yet", changedBy: "", createdAt: "—"),
                 OrderFormTimelineStep(id: "purchased", label: "Purchased", reached: false, active: false, note: "Not started yet", changedBy: "", createdAt: "—"),
                 OrderFormTimelineStep(id: "dormant", label: "Dormant", reached: false, active: false, note: "Not started yet", changedBy: "", createdAt: "—")
@@ -832,6 +875,26 @@ enum MockData {
             declinedItemCount: 0,
             canClientReview: false
         )
+    ]
+
+    static let invoices: [Invoice] = [
+        Invoice(id: "INV-2025-0156", status: "Not Paid", date: "2025-06-04", total: 2450, balance: 2450, discount: 0, discountPercentage: 0, shipmentID: "SHP-0018", cargoID: "LMU-CGO-0041", currency: LimuCurrency.defaultCode, items: [
+            InvoiceItem(id: "ITM-001", label: "Handling Fee", quantity: 1, total: 80),
+            InvoiceItem(id: "ITM-002", label: "Storage – 3 days", quantity: 3, total: 45),
+            InvoiceItem(id: "ITM-003", label: "Customs Documentation", quantity: 1, total: 120),
+            InvoiceItem(id: "ITM-004", label: "Sea Freight (0.92 CBM)", quantity: 1, total: 1885),
+            InvoiceItem(id: "ITM-005", label: "Destination Charges", quantity: 1, total: 320)
+        ], payments: []),
+        Invoice(id: "INV-2025-0144", status: "Partially Paid", date: "2025-05-02", total: 1890, balance: 890, discount: 0, discountPercentage: 0, shipmentID: "SHP-0015", cargoID: "LMU-CGO-0038", currency: LimuCurrency.defaultCode, items: [
+            InvoiceItem(id: "ITM-006", label: "Handling Fee", quantity: 1, total: 60),
+            InvoiceItem(id: "ITM-007", label: "Sea Freight (1.24 CBM)", quantity: 1, total: 1550),
+            InvoiceItem(id: "ITM-008", label: "Destination Charges", quantity: 1, total: 280)
+        ], payments: [Payment(id: "PAY-001", amount: 1000, status: "Approved", date: "2025-05-14", transactionID: "TXN-GH-88420")]),
+        Invoice(id: "INV-2025-0128", status: "Paid", date: "2025-03-12", total: 980, balance: 0, discount: 50, discountPercentage: 5, shipmentID: "SHP-0012", cargoID: "LMU-CGO-0029", currency: LimuCurrency.defaultCode, items: [
+            InvoiceItem(id: "ITM-009", label: "Sea Freight (0.38 CBM)", quantity: 1, total: 750),
+            InvoiceItem(id: "ITM-010", label: "Destination Charges", quantity: 1, total: 180),
+            InvoiceItem(id: "ITM-011", label: "Loyalty Discount", quantity: 1, total: -50)
+        ], payments: [Payment(id: "PAY-002", amount: 980, status: "Approved", date: "2025-03-20", transactionID: "TXN-GH-71203")])
     ]
 
     static let notifications: [AppNotification] = [

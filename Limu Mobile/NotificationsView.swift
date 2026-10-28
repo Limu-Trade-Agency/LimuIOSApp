@@ -5,8 +5,13 @@ struct NotificationsView: View {
     @Binding var notifications: [AppNotification]
     let onBack: () -> Void
     let onNavigate: (AppTab) -> Void
+    /// Inbox holds what needs attention; Archive holds what the client filed away.
+    @State private var section = "Inbox"
 
+    private var showingArchive: Bool { section == "Archive" }
     private var unreadCount: Int { notifications.filter(\.isUnread).count }
+    private var readCount: Int { notifications.filter { !$0.isUnread }.count }
+    private var shown: [AppNotification] { showingArchive ? appState.archivedNotifications : notifications }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,9 +35,21 @@ struct NotificationsView: View {
                             .clipShape(Capsule())
                     }
                     Spacer()
-                    if unreadCount > 0 {
+                    if !showingArchive && unreadCount > 0 {
                         Button("Mark all read") {
                             Task { await appState.markAllRead() }
+                        }
+                        .font(.limu(size: 12, weight: .semibold))
+                        .foregroundStyle(LimuColors.copper)
+                        .buttonStyle(.plain)
+                    }
+                    if !showingArchive && readCount > 0 {
+                        Button("Archive read") {
+                            Task {
+                                for notification in notifications where !notification.isUnread {
+                                    await appState.changeNotification(notification, action: "archive")
+                                }
+                            }
                         }
                         .font(.limu(size: 12, weight: .semibold))
                         .foregroundStyle(LimuColors.copper)
@@ -41,34 +58,66 @@ struct NotificationsView: View {
                 }
             }
 
-            if notifications.isEmpty {
+            SegmentedTabs(items: ["Inbox", "Archive"], selection: $section)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+
+            if shown.isEmpty {
                 VStack(spacing: 12) {
-                    GradientIconTile(systemName: "bell.slash", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 108, symbolSize: 42)
-                    Text("No Notifications").font(.limu(size: 15, weight: .bold))
-                    Text("You're all caught up!").font(.limu(size: 13)).foregroundStyle(LimuColors.muted)
+                    GradientIconTile(systemName: showingArchive ? "archivebox" : "bell.slash", colors: [LimuColors.sunsetOrange, LimuColors.yellow], diameter: 108, symbolSize: 42)
+                    Text(showingArchive ? "Nothing archived" : "No Notifications").font(.limu(size: 15, weight: .bold))
+                    Text(showingArchive ? "Archived notifications appear here." : "You're all caught up!")
+                        .font(.limu(size: 13)).foregroundStyle(LimuColors.muted)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(notifications) { notification in
-                            Button { open(notification) } label: { notificationCard(notification) }
-                                .buttonStyle(.plain)
-                        }
+                // Swipe actions need a List: swipe right to archive (or restore), swipe left to delete.
+                List {
+                    ForEach(shown) { notification in
+                        Button { open(notification) } label: { notificationCard(notification) }
+                            .buttonStyle(.plain)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                if showingArchive {
+                                    Button { act(notification, "restore") } label: { Label("Restore", systemImage: "tray.and.arrow.up") }
+                                        .tint(LimuColors.copper)
+                                } else {
+                                    Button { act(notification, "archive") } label: { Label("Archive", systemImage: "archivebox") }
+                                        .tint(LimuColors.copper)
+                                }
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) { act(notification, "delete") } label: { Label("Delete", systemImage: "trash") }
+                            }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
                 }
-                .refreshable { await appState.refreshNotifications() }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .refreshable { await reload() }
             }
         }
         .background(LimuColors.cream.ignoresSafeArea())
-        .task { await appState.refreshNotifications() }
+        .task { await reload() }
     }
 
+    private func reload() async {
+        await appState.refreshNotifications()
+        await appState.refreshArchivedNotifications()
+    }
+
+    private func act(_ notification: AppNotification, _ action: String) {
+        Task { await appState.changeNotification(notification, action: action) }
+    }
+
+    /// Opens the exact record the notification is about (the specific shipment update or cargo, the specific
+    /// invoice or order form), falling back to the owning tab only when it names no record.
     private func open(_ notification: AppNotification) {
         Task { await appState.markRead(notification) }
-        onNavigate(notification.destination)
+        let link = appState.deepLink(for: notification)
+        appState.pendingLink = link
+        onNavigate(link?.tab ?? notification.destination)
     }
 
     private func notificationCard(_ notification: AppNotification) -> some View {
@@ -102,7 +151,6 @@ struct NotificationsView: View {
                     }
                 }
             }
-            .opacity(notification.isUnread ? 1 : 0.82)
             if notification.isUnread {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(LimuColors.copper)
@@ -116,11 +164,11 @@ struct NotificationsView: View {
     private func icon(for category: String) -> String {
         switch category {
         case "Cargo": "shippingbox.fill"
-        case "Order Form": "list.clipboard.fill"
+        case "Order Form", "Order": "list.clipboard.fill"
         case "Invoice": "doc.text.fill"
         case "Payment": "creditcard.fill"
         case "Shipment": "ferry.fill"
-        case "KYC": "checklist.checked"
+        case "KYC", "Profile": "checklist.checked"
         default: "gearshape.fill"
         }
     }
@@ -137,7 +185,7 @@ struct NotificationsView: View {
 
     private func categoryBackground(_ category: String) -> Color {
         switch category {
-        case "Order Form": LimuColors.copperWash
+        case "Order Form", "Order": LimuColors.copperWash
         case "Payment": LimuColors.successWash
         case "Invoice": LimuColors.dangerWash
         default: LimuColors.copperWash

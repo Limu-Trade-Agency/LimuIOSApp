@@ -183,6 +183,7 @@ struct DashboardDTO: Decodable {
     let metrics: DashboardMetricsDTO
     let activeCargo: [CargoDTO]
     let shipments: [ShipmentDTO]
+    let invoices: [InvoiceDTO]?
     let orderForms: [OrderFormDTO]?
     let notifications: [NotificationDTO]
 }
@@ -216,6 +217,7 @@ struct CargoDTO: Decodable {
     let consignmentValue: Double
     let packages: [CargoPackageDTO]?
     let timeline: [TimelineDTO]?
+    let checklist: [CargoChecklistStepDTO]?
 
     var model: Cargo {
         Cargo(
@@ -233,7 +235,8 @@ struct CargoDTO: Decodable {
             readyForCollection: readyForCollection,
             collectionLocation: collectionLocation,
             notes: notes,
-            checkedPackages: checkedPackageCount
+            checkedPackages: checkedPackageCount,
+            checklist: (checklist ?? []).map(\.model)
         )
     }
 }
@@ -293,6 +296,13 @@ struct ShipmentDTO: Decodable {
     let createdAt: String?
     let updates: [ShipmentUpdateDTO]?
     let cargo: [CargoDTO]?
+    let shipmentNumber: String?
+    let currentStage: ShipmentStageSnippetDTO?
+    let stages: [ShipmentStageDTO]?
+    let stageUpdates: [ShipmentStageUpdateDTO]?
+    let plan: ShipmentPlanDTO?
+    let cargoReferences: [CargoReferenceDTO]?
+    let history: ShipmentHistoryDTO?
 
     var model: Shipment {
         Shipment(
@@ -306,7 +316,14 @@ struct ShipmentDTO: Decodable {
             location: currentLocation,
             cargoCount: clientCargoCount,
             packageCount: packageCount,
-            progress: progress
+            progress: progress,
+            number: shipmentNumber,
+            currentStage: currentStage?.model,
+            stages: (stages ?? []).map(\.model),
+            stageUpdates: (stageUpdates ?? []).map(\.model),
+            plan: plan?.model,
+            cargoReferences: (cargoReferences ?? []).map { $0.trackingNumber.isEmpty ? "CGO-\($0.id)" : $0.trackingNumber },
+            history: history?.model
         )
     }
 }
@@ -578,6 +595,9 @@ struct InvoiceDTO: Decodable {
     let orderFormNumber: String?
     let items: [InvoiceItemDTO]?
     let payments: [PaymentDTO]?
+    let typeLabel: String?
+    let invoiceType: String?
+    let shareUrl: String?
 
     var model: Invoice {
         let percentage = total > 0 ? Int((discount / total * 100).rounded()) : 0
@@ -596,7 +616,10 @@ struct InvoiceDTO: Decodable {
             items: (items ?? []).map(\.model),
             payments: (payments ?? []).map { $0.model(currency: LimuCurrency.code(currency)) },
             documentURL: documentUrl.flatMap(URL.init(string:)),
-            orderFormNumber: orderFormNumber
+            orderFormNumber: orderFormNumber,
+            typeLabel: typeLabel ?? "Shipping",
+            isCustoms: invoiceType == "customs_clearance",
+            shareURL: shareUrl.flatMap(URL.init(string:))
         )
     }
 }
@@ -663,7 +686,7 @@ struct NotificationDTO: Decodable {
         default:
             tab = .home
         }
-        return AppNotification(id: id, title: title, message: message, category: category, timestamp: timestamp, isUnread: !isRead, destination: tab, objectID: objectId)
+        return AppNotification(id: id, title: title, message: message, category: category, timestamp: timestamp, isUnread: !isRead, destination: tab, objectID: objectId, objectType: objectType)
     }
 }
 
@@ -674,6 +697,23 @@ struct KYCRecordDTO: Decodable {
     let locked: Bool?
     let lockedFields: [String]?
     let pendingChangeRequest: KYCChangeRequestDTO?
+    /// A change request the Limu team declined. Shown in KYC Details until the client has opened it.
+    let declinedChangeRequest: DeclinedChangeRequestDTO?
+}
+
+struct DeclinedChangeRequestDTO: Decodable {
+    struct Change: Decodable {
+        let field: String
+        let to: String
+    }
+
+    let id: Int
+    let status: String
+    /// The reviewer's note explaining the decision.
+    let reason: String
+    let requestedReason: String?
+    let changes: [Change]
+    let reviewedAt: String?
 }
 
 /// The accepted choices for every selectable KYC field, served by the API so the portal, the iOS
@@ -703,6 +743,15 @@ struct KYCChangeRequestDTO: Decodable, Identifiable {
     let reviewNote: String?
     let createdAt: String?
     let reviewedAt: String?
+    /// Questions from the Limu team while the request is still open (Approve / Comment / Decline).
+    let comments: [KYCChangeCommentDTO]?
+}
+
+struct KYCChangeCommentDTO: Decodable, Identifiable {
+    let id: Int
+    let author: String
+    let message: String
+    let createdAt: String?
 }
 
 struct ShipmentPriceListDTO: Decodable {

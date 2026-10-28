@@ -17,12 +17,46 @@ struct InvoicesView: View {
     }
 
     var body: some View {
-        switch screen {
-        case .list: listView
-        case .detail:
-            if let selectedInvoice { InvoiceDetailView(invoice: selectedInvoice, onBack: { screen = .list }, onUpload: { screen = .upload }) }
-        case .upload:
-            if let selectedInvoice { PaymentUploadView(invoice: selectedInvoice) { screen = .detail } }
+        Group {
+            switch screen {
+            case .list: listView
+            case .detail:
+                if let selectedInvoice {
+                    InvoiceDetailView(invoice: selectedInvoice, onBack: backToList, onUpload: { screen = .upload })
+                }
+            case .upload:
+                if let selectedInvoice { PaymentUploadView(invoice: selectedInvoice, onBack: backToDetail) }
+            }
+        }
+        .task(id: appState.pendingLink) { await openPendingLink() }
+    }
+
+    /// Returning to the list reloads it, so a payment that was just reviewed or a new invoice shows up
+    /// without leaving the tab and coming back.
+    private func backToList() {
+        screen = .list
+        Task { await appState.refreshInvoices() }
+    }
+
+    /// After uploading proof the invoice is fetched again, so its balance and payment history are current.
+    private func backToDetail() {
+        screen = .detail
+        guard let current = selectedInvoice else { return }
+        Task {
+            await appState.refreshInvoices()
+            if let fresh = try? await appState.fetchInvoiceDetail(current.apiID) { selectedInvoice = fresh }
+        }
+    }
+
+    /// A tapped invoice notification names one invoice: open it directly, not just the list.
+    private func openPendingLink() async {
+        guard case .invoice(let id)? = appState.pendingLink else { return }
+        appState.pendingLink = nil
+        do {
+            selectedInvoice = try await appState.fetchInvoiceDetail(id)
+            screen = .detail
+        } catch {
+            appState.errorMessage = error.localizedDescription
         }
     }
 
@@ -77,7 +111,9 @@ struct InvoicesView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(invoice.id).font(.limu(size: 14, weight: .bold)).foregroundStyle(LimuColors.ink)
-                    Text("\(invoice.date) · \(invoice.currency)").font(.limu(size: 11)).foregroundStyle(LimuColors.secondary)
+                    // The shipment leads, so a client can tell which shipment each invoice belongs to at a glance.
+                    Text([invoice.typeLabel, invoice.shipmentID == "—" ? nil : invoice.shipmentID, invoice.date, invoice.currency].compactMap { $0 }.joined(separator: " · "))
+                        .font(.limu(size: 11)).foregroundStyle(LimuColors.secondary)
                 }
                 Spacer()
                 StatusBadge(status: invoice.status)
@@ -119,7 +155,7 @@ private struct InvoiceDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BackHeader(backTitle: "Invoices", title: invoice.id, subtitle: invoice.date, status: invoice.status, onBack: onBack)
+            BackHeader(backTitle: "Invoices", title: invoice.id, subtitle: "\(invoice.typeLabel) · \(invoice.date)", status: invoice.status, onBack: onBack)
             ScrollView {
                 VStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -168,13 +204,39 @@ private struct InvoiceDetailView: View {
                     }
 
                     SectionCard("Details") {
+                        DetailRow(label: "Invoice Type", value: invoice.typeLabel)
                         if let orderFormNumber = invoice.orderFormNumber {
                             DetailRow(label: "Order Form", value: orderFormNumber)
                         }
-                        if invoice.cargoID != "—" { DetailRow(label: "Cargo", value: invoice.cargoID) }
-                        if invoice.shipmentID != "—" { DetailRow(label: "Shipment", value: invoice.shipmentID) }
+                        // A customs clearance invoice belongs to the shipment, so it carries no cargo or bus number.
+                        if !invoice.isCustoms, invoice.cargoID != "—" { DetailRow(label: "Cargo", value: invoice.cargoID) }
+                        if invoice.shipmentID != "—" { DetailRow(label: invoice.isCustoms ? "Attached to shipment" : "Shipment", value: invoice.shipmentID) }
                         if invoice.discount > 0 {
                             DetailRow(label: "Discount", value: "\(invoice.discountPercentage)% (\(MockData.money(invoice.discount, currency: invoice.currency)))")
+                        }
+                    }
+
+                    if let shareURL = invoice.shareURL {
+                        // Download is a PDF of the invoice. Order forms have no PDF of their own, so they only share.
+                        if invoice.typeLabel != "Order Form", let pdfURL = URL(string: shareURL.absoluteString + (shareURL.query == nil ? "?pdf=1" : "&pdf=1")) {
+                            Link(destination: pdfURL) {
+                                Label("Download PDF", systemImage: "arrow.down.doc")
+                                    .font(.limu(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 46)
+                                    .background(LimuColors.copper)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                        }
+                        ShareLink(item: shareURL, subject: Text("Limu \(invoice.typeLabel) invoice \(invoice.id)"), message: Text("Your Limu \(invoice.typeLabel) invoice \(invoice.id)")) {
+                            Label("Share Invoice", systemImage: "square.and.arrow.up")
+                                .font(.limu(size: 14, weight: .bold))
+                                .foregroundStyle(LimuColors.copper)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 46)
+                                .background(LimuColors.copperWash)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }
 
@@ -223,8 +285,6 @@ struct PaymentUploadView: View {
     let invoice: Invoice
     let onBack: () -> Void
     @State private var state: UploadState = .form
-    @State private var amount: String
-    @State private var transactionReference = ""
     @State private var notes = ""
     @State private var fileURL: URL?
     @State private var showingFileImporter = false
@@ -232,7 +292,6 @@ struct PaymentUploadView: View {
     init(invoice: Invoice, onBack: @escaping () -> Void) {
         self.invoice = invoice
         self.onBack = onBack
-        _amount = State(initialValue: String(format: "%.0f", invoice.balance))
     }
 
     var body: some View {
@@ -262,12 +321,10 @@ struct PaymentUploadView: View {
                 .background(LimuColors.copperWash)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay { RoundedRectangle(cornerRadius: 10).stroke(LimuColors.peach) }
-            LimuTextField(label: "Amount Paid (\(invoice.currency))", placeholder: "0.00", text: $amount, keyboard: .decimalPad)
-            Text("The submission date and time will be recorded automatically.")
+            Text("The amount is the invoice balance and the submission date and time are recorded automatically. Attach the proof and add a note if needed.")
                 .font(.limu(size: 11))
                 .foregroundStyle(LimuColors.muted)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            LimuTextField(label: "Transaction / Reference Number", placeholder: "e.g. TXN-GH-12345", text: $transactionReference)
             VStack(alignment: .leading, spacing: 6) {
                 Text("PROOF OF PAYMENT").font(.limu(size: 12, weight: .semibold)).tracking(0.6).foregroundStyle(LimuColors.secondary)
                 Button { showingFileImporter = true } label: {
@@ -293,11 +350,11 @@ struct PaymentUploadView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .overlay { RoundedRectangle(cornerRadius: 10).stroke(LimuColors.charcoal.opacity(0.15), lineWidth: 1.5) }
             }
-            PrimaryButton(title: state == .uploading ? "Submitting…" : "Submit for Review", loading: state == .uploading, disabled: fileURL == nil || Double(amount) == nil) {
+            PrimaryButton(title: state == .uploading ? "Submitting…" : "Submit for Review", loading: state == .uploading, disabled: fileURL == nil) {
                 state = .uploading
                 Task {
-                    guard let fileURL, let value = Double(amount) else { state = .form; return }
-                    let success = await appState.uploadPayment(invoiceID: invoice.apiID, amount: value, transactionID: transactionReference, notes: notes, fileURL: fileURL)
+                    guard let fileURL else { state = .form; return }
+                    let success = await appState.uploadPayment(invoiceID: invoice.apiID, amount: invoice.balance, transactionID: "", notes: notes, fileURL: fileURL)
                     state = success ? .success : .form
                 }
             }
