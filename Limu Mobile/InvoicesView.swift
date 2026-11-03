@@ -22,7 +22,7 @@ struct InvoicesView: View {
             case .list: listView
             case .detail:
                 if let selectedInvoice {
-                    InvoiceDetailView(invoice: selectedInvoice, onBack: backToList, onUpload: { screen = .upload })
+                    InvoiceDetailView(invoice: selectedInvoice, onBack: backToList, onUpload: { screen = .upload }, onProofAdded: reloadSelected)
                 }
             case .upload:
                 if let selectedInvoice { PaymentUploadView(invoice: selectedInvoice, onBack: backToDetail) }
@@ -44,6 +44,13 @@ struct InvoicesView: View {
         guard let current = selectedInvoice else { return }
         Task {
             await appState.refreshInvoices()
+            if let fresh = try? await appState.fetchInvoiceDetail(current.apiID) { selectedInvoice = fresh }
+        }
+    }
+
+    private func reloadSelected() {
+        guard let current = selectedInvoice else { return }
+        Task {
             if let fresh = try? await appState.fetchInvoiceDetail(current.apiID) { selectedInvoice = fresh }
         }
     }
@@ -149,9 +156,14 @@ struct InvoicesView: View {
 }
 
 private struct InvoiceDetailView: View {
+    @EnvironmentObject private var appState: AppState
     let invoice: Invoice
     let onBack: () -> Void
     let onUpload: () -> Void
+    let onProofAdded: () -> Void
+    /// The payment getting another proof (30 Oct 2026: replacing is withdrawn); applies to every invoice type.
+    @State private var addingProofPaymentID: Int?
+    @State private var showingAddProofImporter = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -263,6 +275,24 @@ private struct InvoiceDetailView: View {
                                     Spacer()
                                     StatusBadge(status: payment.status)
                                 }
+                                if payment.proofURLs.isEmpty == false || payment.canAddProof {
+                                    HStack(spacing: 18) {
+                                        ForEach(Array(payment.proofURLs.enumerated()), id: \.offset) { index, proofURL in
+                                            Link(payment.proofURLs.count == 1 ? "View proof" : "Proof \(index + 1)", destination: proofURL)
+                                        }
+                                        if payment.canAddProof {
+                                            Button(addingProofPaymentID == payment.apiID ? "Uploading…" : "Add another proof") {
+                                                addingProofPaymentID = payment.apiID
+                                                showingAddProofImporter = true
+                                            }
+                                            .disabled(addingProofPaymentID != nil)
+                                        }
+                                        Spacer()
+                                    }
+                                    .font(.limu(size: 12, weight: .semibold))
+                                    .foregroundStyle(LimuColors.copper)
+                                    .padding(.bottom, 6)
+                                }
                             }
                         }
                     }
@@ -275,6 +305,20 @@ private struct InvoiceDetailView: View {
             }
         }
         .background(LimuColors.pageBackground)
+        .fileImporter(isPresented: $showingAddProofImporter, allowedContentTypes: [.pdf, .jpeg, .png], allowsMultipleSelection: false) { result in
+            guard let paymentID = addingProofPaymentID else { return }
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { addingProofPaymentID = nil; return }
+                Task {
+                    if await appState.addPaymentProof(paymentID: paymentID, fileURL: url) { onProofAdded() }
+                    addingProofPaymentID = nil
+                }
+            case .failure(let error):
+                appState.errorMessage = error.localizedDescription
+                addingProofPaymentID = nil
+            }
+        }
     }
 }
 

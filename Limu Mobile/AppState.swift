@@ -567,9 +567,24 @@ final class AppState: ObservableObject {
     }
 
     func uploadPayment(invoiceID: Int, amount: Double, transactionID: String, notes: String, fileURL: URL) async -> Bool {
-        await runBusy {
+        if proofTooLarge(fileURL) {
+            errorMessage = Self.proofTooLargeMessage
+            return false
+        }
+        return await runBusy {
             let _: PaymentDTO = try await api.uploadPaymentProof(invoiceID: invoiceID, amount: amount, transactionID: transactionID, notes: notes, fileURL: fileURL)
             try await refreshAll()
+        }
+    }
+
+    func addPaymentProof(paymentID: Int, fileURL: URL) async -> Bool {
+        if proofTooLarge(fileURL) {
+            errorMessage = Self.proofTooLargeMessage
+            return false
+        }
+        return await runBusy {
+            let _: PaymentDTO = try await api.addPaymentProof(paymentID: paymentID, fileURL: fileURL)
+            await refreshInvoices()
         }
     }
 
@@ -905,11 +920,14 @@ final class AppState: ObservableObject {
         }
     }
 
-    func uploadPayment(invoiceID: Int, amount: Double, transactionID: String, notes: String, fileURL: URL) async -> Bool {
-        await runBusy {
-            let _: PaymentDTO = try await api.uploadPaymentProof(invoiceID: invoiceID, amount: amount, transactionID: transactionID, notes: notes, fileURL: fileURL)
-            try await refreshAll()
-        }
+    private static let proofTooLargeMessage = "The file is larger than 8 MB. Choose a smaller photo or PDF."
+
+    /// The server refuses proofs over 8 MB; checking first saves a slow upload that would fail.
+    private func proofTooLarge(_ url: URL) -> Bool {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        return size > 8 * 1024 * 1024
     }
 
     private func runBusy(_ operation: () async throws -> Void) async -> Bool {

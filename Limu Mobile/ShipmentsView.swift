@@ -201,6 +201,10 @@ struct ShipmentsView: View {
                 Spacer(minLength: 8)
                 StatusBadge(status: shipment.status)
             }
+            if let performance = shipment.performance {
+                PerformancePill(performance: performance)
+                    .padding(.top, 8)
+            }
             if let stage = shipment.currentStage {
                 CurrentStageSnippet(stage: stage, arrival: shipment.arrival)
                     .padding(.top, 10)
@@ -565,6 +569,10 @@ private struct ShipmentDetailView: View {
 
     private var overview: some View {
         VStack(spacing: 12) {
+            if let performance = shipment.performance {
+                PerformancePill(performance: performance, showDates: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             if let stage = shipment.currentStage {
                 CurrentStageSnippet(stage: stage, arrival: shipment.arrival)
                     .overlay { RoundedRectangle(cornerRadius: 10).stroke(LimuColors.peach) }
@@ -918,5 +926,45 @@ private struct StageOutcomeBar: View {
             Circle().fill(color).frame(width: 8, height: 8)
             Text(label)
         }
+    }
+}
+
+/// Ahead / on schedule / behind against the date the shipment was first planned to be ready for collection.
+struct PerformancePill: View {
+    let performance: ShipmentPerformance
+    var showDates = false
+
+    private var tint: Color {
+        switch performance.status {
+        case "ahead": return LimuColors.success
+        case "behind": return LimuColors.danger
+        default: return LimuColors.copper
+        }
+    }
+
+    private var wash: Color {
+        switch performance.status {
+        case "ahead": return LimuColors.successWash
+        case "behind": return LimuColors.dangerWash
+        default: return LimuColors.copperWash
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(performance.label).font(.limu(size: 12, weight: .bold)).foregroundStyle(tint)
+            if showDates {
+                Text("Ready for collection: planned \(dateText(performance.plannedReadyAt)) · \(performance.completed ? "ready" : "now expected") \(dateText(performance.expectedReadyAt))")
+                    .font(.limu(size: 11)).foregroundStyle(LimuColors.secondary)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(wash)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func dateText(_ value: String?) -> String {
+        value.map { LimuDateFormatting.display($0) } ?? "—"
     }
 }

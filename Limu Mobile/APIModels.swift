@@ -304,6 +304,7 @@ struct ShipmentDTO: Decodable {
     let plan: ShipmentPlanDTO?
     let cargoReferences: [CargoReferenceDTO]?
     let history: ShipmentHistoryDTO?
+    let performance: ShipmentPerformanceDTO?
 
     var model: Shipment {
         Shipment(
@@ -324,7 +325,8 @@ struct ShipmentDTO: Decodable {
             stageUpdates: (stageUpdates ?? []).map(\.model),
             plan: plan?.model,
             cargoReferences: (cargoReferences ?? []).map { $0.trackingNumber.isEmpty ? "CGO-\($0.id)" : $0.trackingNumber },
-            history: history?.model
+            history: history?.model,
+            performance: performance?.model
         )
     }
 }
@@ -647,13 +649,29 @@ struct PaymentDTO: Decodable {
     let reviewedAt: String?
     let transactionId: String
     let notes: String?
+    /// Every proof on the payment; older servers send only proofUrl.
+    let proofs: [PaymentProofDTO]?
+    /// Older servers do not send it; treat a missing value as "cannot add".
+    let canAddProof: Bool?
 
     var model: Payment { model(currency: LimuCurrency.code(currency)) }
 
     /// Payments are shown in their invoice's currency (order-form invoices are not in the default currency).
     func model(currency: String) -> Payment {
-        Payment(id: String(id), amount: amount, status: status, date: paymentDate ?? "—", transactionID: transactionId, currency: currency)
+        Payment(
+            id: String(id), amount: amount, status: status, date: paymentDate ?? "—", transactionID: transactionId, currency: currency,
+            apiID: id,
+            proofURLs: proofs.map { $0.compactMap { $0.url.flatMap { $0.isEmpty ? nil : URL(string: $0) } } }
+                ?? [proofUrl.flatMap { $0.isEmpty ? nil : URL(string: $0) }].compactMap { $0 },
+            canAddProof: canAddProof ?? false
+        )
     }
+}
+
+struct PaymentProofDTO: Decodable {
+    let id: Int?
+    let url: String?
+    let addedAt: String?
 }
 struct NotificationDTO: Decodable {
     let id: String

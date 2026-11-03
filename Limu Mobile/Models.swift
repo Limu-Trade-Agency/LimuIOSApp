@@ -151,6 +151,7 @@ struct Shipment: Identifiable, Hashable {
     let plan: ShipmentPlan?
     let cargoReferences: [String]
     let history: ShipmentHistory?
+    let performance: ShipmentPerformance?
 
     init(
         apiID: Int = 0,
@@ -170,7 +171,8 @@ struct Shipment: Identifiable, Hashable {
         stageUpdates: [ShipmentStageUpdate] = [],
         plan: ShipmentPlan? = nil,
         cargoReferences: [String] = [],
-        history: ShipmentHistory? = nil
+        history: ShipmentHistory? = nil,
+        performance: ShipmentPerformance? = nil
     ) {
         self.apiID = apiID
         self.id = id
@@ -182,6 +184,7 @@ struct Shipment: Identifiable, Hashable {
         self.plan = plan
         self.cargoReferences = cargoReferences
         self.history = history
+        self.performance = performance
         self.status = status
         self.mode = mode
         self.departure = LimuDateFormatting.display(departure)
@@ -582,6 +585,11 @@ struct Payment: Identifiable, Hashable {
     let date: String
     let transactionID: String
     let currency: String
+    let apiID: Int
+    /// Every proof on the payment, oldest first, viewable on every invoice type.
+    let proofURLs: [URL]
+    /// True until finance reviews the payment: the client can add another proof (30 Oct 2026: no replacing).
+    let canAddProof: Bool
 
     init(
         id: String,
@@ -589,7 +597,10 @@ struct Payment: Identifiable, Hashable {
         status: String,
         date: String,
         transactionID: String,
-        currency: String = LimuCurrency.defaultCode
+        currency: String = LimuCurrency.defaultCode,
+        apiID: Int = 0,
+        proofURLs: [URL] = [],
+        canAddProof: Bool = false
     ) {
         self.id = id
         self.amount = amount
@@ -597,6 +608,9 @@ struct Payment: Identifiable, Hashable {
         self.date = date
         self.transactionID = transactionID
         self.currency = LimuCurrency.code(currency)
+        self.apiID = apiID
+        self.proofURLs = proofURLs
+        self.canAddProof = canAddProof
     }
 }
 

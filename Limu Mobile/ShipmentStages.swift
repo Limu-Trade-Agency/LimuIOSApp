@@ -176,6 +176,35 @@ struct ShipmentStageUpdateDTO: Decodable {
     }
 }
 
+/// How the shipment is tracking from verification to ready for collection (29 Oct 2026 review): the final stage's
+/// actual or current expected date against the date it was first planned for.
+struct ShipmentPerformance: Hashable {
+    /// "ahead", "on_track", "behind" or "unknown".
+    let status: String
+    let label: String
+    let varianceDays: Double?
+    let plannedReadyAt: String?
+    let expectedReadyAt: String?
+    let completed: Bool
+}
+
+struct ShipmentPerformanceDTO: Decodable {
+    let status: String?
+    let label: String?
+    let varianceDays: Double?
+    let plannedReadyAt: String?
+    let expectedReadyAt: String?
+    let completed: Bool?
+
+    var model: ShipmentPerformance? {
+        guard let status, status != "unknown" else { return nil }
+        return ShipmentPerformance(
+            status: status, label: label ?? "", varianceDays: varianceDays,
+            plannedReadyAt: plannedReadyAt, expectedReadyAt: expectedReadyAt, completed: completed ?? false
+        )
+    }
+}
+
 struct ShipmentPlanDTO: Decodable {
     let route: String?
     let origin: String?
