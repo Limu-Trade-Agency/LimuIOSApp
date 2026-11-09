@@ -122,7 +122,7 @@ struct NotificationsView: View {
 
     private func notificationCard(_ notification: AppNotification) -> some View {
         ZStack(alignment: .leading) {
-            AccentCard(accentColor: categoryGradient(for: notification.category)[0], padding: 14) {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top, spacing: 12) {
                     GradientIconTile(systemName: icon(for: notification.category), colors: categoryGradient(for: notification.category), diameter: 38, symbolSize: 17)
                     VStack(alignment: .leading, spacing: 5) {
@@ -151,6 +151,16 @@ struct NotificationsView: View {
                     }
                 }
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(LimuColors.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(LimuColors.divider.opacity(0.7), lineWidth: 1)
+            )
+            // Matches Android's notification card: soft neutral shadow, no colour-tinted spot shadow.
+            .shadow(color: LimuColors.charcoal.opacity(0.06), radius: 4, y: 2)
             if notification.isUnread {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(LimuColors.copper)
@@ -173,8 +183,7 @@ struct NotificationsView: View {
         }
     }
 
-    /// Matches Android's NotificationCard categoryGradient — the icon tile's gradient, and (as
-    /// its first stop) the new AccentCard's top-edge accent colour.
+    /// Matches Android's NotificationCard categoryGradient — the icon tile's gradient.
     private func categoryGradient(for category: String) -> [Color] {
         switch category {
         case "Payment": [LimuColors.success, Color(hex: "22C55E")]

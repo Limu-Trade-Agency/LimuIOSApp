@@ -637,9 +637,14 @@ struct DetailRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
+            // Keep the label on one line at its natural width so a long value wraps instead of
+            // squeezing the label down to one letter per line.
             Text(label)
                 .font(.limu(size: 12))
                 .foregroundStyle(LimuColors.secondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
             Spacer(minLength: 8)
             Text(value)
                 .font(monospaced ? .system(size: 12, weight: .semibold, design: .monospaced) : .limu(size: 12, weight: .semibold))
