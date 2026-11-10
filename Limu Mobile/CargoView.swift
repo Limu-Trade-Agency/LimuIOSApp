@@ -65,7 +65,9 @@ struct CargoView: View {
     /// A tapped notification names one cargo: open it directly instead of leaving the user on the list.
     private func openPendingLink() async {
         guard case .cargo(let id)? = appState.pendingLink else { return }
-        appState.pendingLink = nil
+        defer {
+            if appState.pendingLink == .cargo(id) { appState.pendingLink = nil }
+        }
         packages = []
         timeline = []
         loadingDetail = true

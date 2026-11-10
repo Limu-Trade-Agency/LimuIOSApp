@@ -92,7 +92,9 @@ struct ShipmentsView: View {
     /// A tapped shipment-update notification names one shipment: open it directly, not just the list.
     private func openPendingLink() async {
         guard case .shipment(let id)? = appState.pendingLink else { return }
-        appState.pendingLink = nil
+        defer {
+            if appState.pendingLink == .shipment(id) { appState.pendingLink = nil }
+        }
         updates = []
         shipmentCargo = []
         loadingDetail = true

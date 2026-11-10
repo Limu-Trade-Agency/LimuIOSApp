@@ -92,7 +92,7 @@ struct ContentView: View {
                 )
             } else {
                 TabView(selection: guardedTabSelection) {
-                    Tab("Home", systemImage: AppTab.home.icon, value: AppTab.home) {
+                    Group {
                         HomeView(
                             notifications: appState.notifications,
                             onNavigate: navigate,
@@ -100,16 +100,20 @@ struct ContentView: View {
                             onOpenKYC: openKYC
                         )
                     }
-                    Tab("Shipments", systemImage: AppTab.shipments.icon, value: AppTab.shipments) {
+                    .tabItem { Label("Home", systemImage: AppTab.home.icon) }.tag(AppTab.home)
+                    Group {
                         ShipmentsHubView(segment: $shipmentsSegment)
                     }
-                    Tab("Order Forms", systemImage: AppTab.orderForms.icon, value: AppTab.orderForms) {
+                    .tabItem { Label("Shipments", systemImage: AppTab.shipments.icon) }.tag(AppTab.shipments)
+                    Group {
                         kycGated(feature: "Order Forms") { OrderFormsView() }
                     }
-                    Tab("Invoices", systemImage: AppTab.invoices.icon, value: AppTab.invoices) {
+                    .tabItem { Label("Order Forms", systemImage: AppTab.orderForms.icon) }.tag(AppTab.orderForms)
+                    Group {
                         InvoicesView()
                     }
-                    Tab("Profile", systemImage: AppTab.profile.icon, value: AppTab.profile) {
+                    .tabItem { Label("Invoices", systemImage: AppTab.invoices.icon) }.tag(AppTab.invoices)
+                    Group {
                         ProfileView(shouldOpenKYC: $shouldOpenKYC) {
                             Task {
                                 await appState.logout()
@@ -117,9 +121,10 @@ struct ContentView: View {
                             }
                         }
                     }
+                    .tabItem { Label("Profile", systemImage: AppTab.profile.icon) }.tag(AppTab.profile)
                     .badge(appState.unreadCount)
                 }
-                .tabBarMinimizeBehavior(.onScrollDown)
+                .limuTabBarBehavior()
                 .tint(LimuColors.sunsetOrange)
             }
         }
@@ -166,6 +171,7 @@ struct ContentView: View {
             shipmentsSegment = "Cargo"
             selectedTab = .shipments
         } else {
+            if tab == .shipments { shipmentsSegment = "Shipments" }
             selectedTab = tab
         }
     }
@@ -282,4 +288,14 @@ private struct KYCRestrictedView: View {
 
 #Preview {
     ContentView()
+}
+
+private extension View {
+    @ViewBuilder func limuTabBarBehavior() -> some View {
+        if #available(iOS 26.0, *) {
+            self.tabBarMinimizeBehavior(.onScrollDown)
+        } else {
+            self
+        }
+    }
 }

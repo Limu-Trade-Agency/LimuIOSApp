@@ -185,7 +185,6 @@ struct DashboardDTO: Decodable {
     let shipments: [ShipmentDTO]
     let invoices: [InvoiceDTO]?
     let orderForms: [OrderFormDTO]?
-    let invoices: [InvoiceDTO]?
     let notifications: [NotificationDTO]
 }
 
@@ -604,6 +603,8 @@ struct InvoiceDTO: Decodable {
 
     var model: Invoice {
         let percentage = total > 0 ? Int((discount / total * 100).rounded()) : 0
+        let isShipping = invoiceType == "shipping" || (invoiceType == nil && (typeLabel == nil || typeLabel == "Shipping"))
+        let invoiceCurrency = isShipping ? "USD" : LimuCurrency.code(currency)
         return Invoice(
             apiID: id,
             id: number,
@@ -615,9 +616,9 @@ struct InvoiceDTO: Decodable {
             discountPercentage: percentage,
             shipmentID: shipmentName.isEmpty ? shipmentId.map { "SHP-\($0)" } ?? "—" : shipmentName,
             cargoID: trackingNumber.isEmpty ? cargoId.map { "CGO-\($0)" } ?? "—" : trackingNumber,
-            currency: LimuCurrency.code(currency),
+            currency: invoiceCurrency,
             items: (items ?? []).map(\.model),
-            payments: (payments ?? []).map { $0.model(currency: LimuCurrency.code(currency)) },
+            payments: (payments ?? []).map { $0.model(currency: invoiceCurrency) },
             documentURL: documentUrl.flatMap(URL.init(string:)),
             orderFormNumber: orderFormNumber,
             typeLabel: typeLabel ?? "Shipping",

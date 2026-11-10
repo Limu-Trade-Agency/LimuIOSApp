@@ -35,32 +35,22 @@ struct NotificationsView: View {
                             .clipShape(Capsule())
                     }
                     Spacer()
-                    if !showingArchive && unreadCount > 0 {
-                        Button("Mark all read") {
-                            Task { await appState.markAllRead() }
-                        }
-                        .font(.limu(size: 12, weight: .semibold))
-                        .foregroundStyle(LimuColors.copper)
-                        .buttonStyle(.plain)
-                    }
-                    if !showingArchive && readCount > 0 {
-                        Button("Archive read") {
-                            Task {
-                                for notification in notifications where !notification.isUnread {
-                                    await appState.changeNotification(notification, action: "archive")
-                                }
-                            }
-                        }
-                        .font(.limu(size: 12, weight: .semibold))
-                        .foregroundStyle(LimuColors.copper)
-                        .buttonStyle(.plain)
-                    }
                 }
             }
 
             SegmentedTabs(items: ["Inbox", "Archive"], selection: $section)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
+
+            if !showingArchive && (unreadCount > 0 || readCount > 0) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 20) { notificationActions }
+                    VStack(alignment: .trailing, spacing: 8) { notificationActions }
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+            }
 
             if shown.isEmpty {
                 VStack(spacing: 12) {
@@ -100,6 +90,27 @@ struct NotificationsView: View {
         }
         .background(LimuColors.pageBackground.ignoresSafeArea())
         .task { await appState.refreshNotifications() }
+    }
+
+    @ViewBuilder private var notificationActions: some View {
+        if unreadCount > 0 {
+            Button("Mark all read") { Task { await appState.markAllRead() } }
+                .font(.limu(size: 12, weight: .semibold))
+                .foregroundStyle(LimuColors.copper)
+                .buttonStyle(.plain)
+        }
+        if readCount > 0 {
+            Button("Archive read") {
+                Task {
+                    for notification in notifications where !notification.isUnread {
+                        await appState.changeNotification(notification, action: "archive")
+                    }
+                }
+            }
+            .font(.limu(size: 12, weight: .semibold))
+            .foregroundStyle(LimuColors.copper)
+            .buttonStyle(.plain)
+        }
     }
 
     private func reload() async {

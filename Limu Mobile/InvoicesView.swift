@@ -1,6 +1,13 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+private extension Invoice {
+    var isShipping: Bool { !isCustoms && typeLabel.caseInsensitiveCompare("Shipping") == .orderedSame }
+    var displayTitle: String {
+        typeLabel != "Order Form" && !shipmentID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && shipmentID != "—" ? shipmentID : id
+    }
+}
+
 struct InvoicesView: View {
     @EnvironmentObject private var appState: AppState
     private enum Screen { case list, detail, upload }
@@ -11,9 +18,12 @@ struct InvoicesView: View {
     private let filters = ["All", "Not Paid", "Partially Paid", "Paid"]
 
     private var filtered: [Invoice] { appState.invoices.filter { filter == "All" || $0.status == filter } }
-    private var outstanding: Double { appState.invoices.filter { $0.status != "Paid" }.reduce(0) { $0 + $1.balance } }
-    private var defaultCurrency: String {
-        LimuCurrency.code(appState.dashboard?.metrics.currency ?? appState.invoices.first?.currency)
+    private var outstanding: String {
+        let balances = Dictionary(grouping: appState.invoices.filter { $0.status != "Paid" }, by: \.currency)
+        guard !balances.isEmpty else { return "—" }
+        return balances.keys.sorted().map { currency in
+            MockData.money(balances[currency, default: []].reduce(0) { $0 + $1.balance }, currency: currency)
+        }.joined(separator: " · ")
     }
 
     var body: some View {
@@ -58,7 +68,9 @@ struct InvoicesView: View {
     /// A tapped invoice notification names one invoice: open it directly, not just the list.
     private func openPendingLink() async {
         guard case .invoice(let id)? = appState.pendingLink else { return }
-        appState.pendingLink = nil
+        defer {
+            if appState.pendingLink == .invoice(id) { appState.pendingLink = nil }
+        }
         do {
             selectedInvoice = try await appState.fetchInvoiceDetail(id)
             screen = .detail
@@ -74,7 +86,7 @@ struct InvoicesView: View {
                     .font(.limu(size: 18, weight: .bold))
                 HStack(spacing: 3) {
                     Text("Total Outstanding:")
-                    Text(MockData.money(outstanding, currency: defaultCurrency)).fontWeight(.bold).foregroundStyle(LimuColors.copper)
+                    Text(outstanding).fontWeight(.bold).foregroundStyle(LimuColors.copper)
                 }
                 .font(.limu(size: 12))
                 .foregroundStyle(LimuColors.secondary)
@@ -117,9 +129,11 @@ struct InvoicesView: View {
         LimuCard(padding: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(invoice.id).font(.limu(size: 14, weight: .bold)).foregroundStyle(LimuColors.ink)
-                    // The shipment leads, so a client can tell which shipment each invoice belongs to at a glance.
-                    Text([invoice.typeLabel, invoice.shipmentID == "—" ? nil : invoice.shipmentID, invoice.date, invoice.currency].compactMap { $0 }.joined(separator: " · "))
+                    Text(invoice.displayTitle).font(.limu(size: 14, weight: .bold)).foregroundStyle(LimuColors.ink)
+                    if invoice.isShipping {
+                        Text("Global Access Trade").font(.limu(size: 11, weight: .semibold)).foregroundStyle(LimuColors.copper)
+                    }
+                    Text([invoice.typeLabel, invoice.displayTitle == invoice.id ? nil : invoice.id, invoice.date, invoice.currency].compactMap { $0 }.joined(separator: " · "))
                         .font(.limu(size: 11)).foregroundStyle(LimuColors.secondary)
                 }
                 Spacer()
@@ -167,7 +181,7 @@ private struct InvoiceDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BackHeader(backTitle: "Invoices", title: invoice.id, subtitle: "\(invoice.typeLabel) · \(invoice.date)", status: invoice.status, onBack: onBack)
+            BackHeader(backTitle: "Invoices", title: invoice.displayTitle, subtitle: "\(invoice.typeLabel) · \(invoice.date)", status: invoice.status, onBack: onBack)
             ScrollView {
                 VStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -216,7 +230,9 @@ private struct InvoiceDetailView: View {
                     }
 
                     SectionCard("Details") {
+                        if invoice.isShipping { DetailRow(label: "Issued by", value: "Global Access Trade") }
                         DetailRow(label: "Invoice Type", value: invoice.typeLabel)
+                        DetailRow(label: "Invoice Number", value: invoice.id)
                         if let orderFormNumber = invoice.orderFormNumber {
                             DetailRow(label: "Order Form", value: orderFormNumber)
                         }
@@ -241,7 +257,7 @@ private struct InvoiceDetailView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                         }
-                        ShareLink(item: shareURL, subject: Text("Limu \(invoice.typeLabel) invoice \(invoice.id)"), message: Text("Your Limu \(invoice.typeLabel) invoice \(invoice.id)")) {
+                        ShareLink(item: shareURL, subject: Text("\(invoice.isShipping ? "Global Access Trade" : "Limu") \(invoice.typeLabel) invoice \(invoice.id)"), message: Text("Your \(invoice.isShipping ? "Global Access Trade" : "Limu") \(invoice.typeLabel) invoice \(invoice.id)")) {
                             Label("Share Invoice", systemImage: "square.and.arrow.up")
                                 .font(.limu(size: 14, weight: .bold))
                                 .foregroundStyle(LimuColors.copper)
@@ -340,7 +356,7 @@ struct PaymentUploadView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BackHeader(backTitle: invoice.id, title: "Upload Payment Proof", onBack: onBack)
+            BackHeader(backTitle: invoice.displayTitle, title: "Upload Payment Proof", onBack: onBack)
             ScrollView {
                 if state == .success { successView } else { formView }
             }

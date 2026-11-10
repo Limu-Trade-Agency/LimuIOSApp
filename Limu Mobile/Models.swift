@@ -893,19 +893,19 @@ enum MockData {
     ]
 
     static let invoices: [Invoice] = [
-        Invoice(id: "INV-2025-0156", status: "Not Paid", date: "2025-06-04", total: 2450, balance: 2450, discount: 0, discountPercentage: 0, shipmentID: "SHP-0018", cargoID: "LMU-CGO-0041", currency: LimuCurrency.defaultCode, items: [
+        Invoice(id: "INV-2025-0156", status: "Not Paid", date: "2025-06-04", total: 2450, balance: 2450, discount: 0, discountPercentage: 0, shipmentID: "SHP-0018", cargoID: "LMU-CGO-0041", currency: "USD", items: [
             InvoiceItem(id: "ITM-001", label: "Handling Fee", quantity: 1, total: 80),
             InvoiceItem(id: "ITM-002", label: "Storage – 3 days", quantity: 3, total: 45),
             InvoiceItem(id: "ITM-003", label: "Customs Documentation", quantity: 1, total: 120),
             InvoiceItem(id: "ITM-004", label: "Sea Freight (0.92 CBM)", quantity: 1, total: 1885),
             InvoiceItem(id: "ITM-005", label: "Destination Charges", quantity: 1, total: 320)
         ], payments: []),
-        Invoice(id: "INV-2025-0144", status: "Partially Paid", date: "2025-05-02", total: 1890, balance: 890, discount: 0, discountPercentage: 0, shipmentID: "SHP-0015", cargoID: "LMU-CGO-0038", currency: LimuCurrency.defaultCode, items: [
+        Invoice(id: "INV-2025-0144", status: "Partially Paid", date: "2025-05-02", total: 1890, balance: 890, discount: 0, discountPercentage: 0, shipmentID: "SHP-0015", cargoID: "LMU-CGO-0038", currency: "USD", items: [
             InvoiceItem(id: "ITM-006", label: "Handling Fee", quantity: 1, total: 60),
             InvoiceItem(id: "ITM-007", label: "Sea Freight (1.24 CBM)", quantity: 1, total: 1550),
             InvoiceItem(id: "ITM-008", label: "Destination Charges", quantity: 1, total: 280)
         ], payments: [Payment(id: "PAY-001", amount: 1000, status: "Approved", date: "2025-05-14", transactionID: "TXN-GH-88420")]),
-        Invoice(id: "INV-2025-0128", status: "Paid", date: "2025-03-12", total: 980, balance: 0, discount: 50, discountPercentage: 5, shipmentID: "SHP-0012", cargoID: "LMU-CGO-0029", currency: LimuCurrency.defaultCode, items: [
+        Invoice(id: "INV-2025-0128", status: "Paid", date: "2025-03-12", total: 980, balance: 0, discount: 50, discountPercentage: 5, shipmentID: "SHP-0012", cargoID: "LMU-CGO-0029", currency: "USD", items: [
             InvoiceItem(id: "ITM-009", label: "Sea Freight (0.38 CBM)", quantity: 1, total: 750),
             InvoiceItem(id: "ITM-010", label: "Destination Charges", quantity: 1, total: 180),
             InvoiceItem(id: "ITM-011", label: "Loyalty Discount", quantity: 1, total: -50)

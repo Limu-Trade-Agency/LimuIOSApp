@@ -58,7 +58,9 @@ struct OrderFormsView: View {
     /// A tapped order-form notification names one order form: open it directly, not just the list.
     private func openPendingLink() async {
         guard case .orderForm(let id)? = appState.pendingLink else { return }
-        appState.pendingLink = nil
+        defer {
+            if appState.pendingLink == .orderForm(id) { appState.pendingLink = nil }
+        }
         loadingDetail = true
         defer { loadingDetail = false }
         do {
